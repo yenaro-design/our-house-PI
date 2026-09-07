@@ -1,0 +1,340 @@
+.register-page {
+  --register-ink: #20302b;
+  --register-muted: #71807a;
+  --register-paper: #fffdf8;
+  --register-line: #d9e1d9;
+  --register-sage: #dce9df;
+  --register-green: #356b59;
+  --register-coral: #d4775e;
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(420px, 1.15fr);
+  background: var(--register-paper);
+  color: var(--register-ink);
+  text-align: left;
+  overflow: hidden;
+}
+
+.register-aside {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100%;
+  padding: clamp(32px, 6vw, 82px) clamp(28px, 7vw, 96px);
+  background: var(--register-sage);
+  isolation: isolate;
+}
+
+.register-aside::after {
+  content: "";
+  position: absolute;
+  right: -76px;
+  bottom: -94px;
+  z-index: -1;
+  width: 250px;
+  height: 250px;
+  border: 1px solid rgba(53, 107, 89, 0.18);
+  border-radius: 50%;
+  box-shadow: 0 0 0 28px rgba(53, 107, 89, 0.06), 0 0 0 56px rgba(53, 107, 89, 0.04);
+}
+
+.register-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  color: var(--register-ink);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.register-brand-mark {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--register-ink);
+  border-radius: 50%;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.register-intro {
+  max-width: 480px;
+  margin: auto 0;
+  padding: 72px 0;
+}
+
+.register-eyebrow {
+  margin: 0 0 18px;
+  color: var(--register-green);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.register-intro h1 {
+  max-width: 510px;
+  margin: 0;
+  color: var(--register-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(38px, 4.2vw, 68px);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 0.99;
+}
+
+.register-intro-copy {
+  max-width: 340px;
+  margin-top: 26px;
+  color: #52655d;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.register-note {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  max-width: 285px;
+  color: #52655d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.register-note p {
+  margin: 0;
+}
+
+.register-note-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--register-coral);
+  box-shadow: 0 0 0 5px rgba(212, 119, 94, 0.14);
+}
+
+.register-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(32px, 7vw, 104px) clamp(28px, 9vw, 140px);
+  background: #f8faf5;
+}
+
+.register-card {
+  width: min(100%, 430px);
+  margin: 0 auto;
+  padding: clamp(26px, 4vw, 46px);
+  border: 1px solid var(--register-line);
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.88);
+  box-shadow: 0 22px 55px rgba(39, 65, 54, 0.08);
+}
+
+.register-card-heading h2 {
+  margin: 0;
+  color: var(--register-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 38px;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.register-card-heading > p:last-child {
+  margin: 14px 0 0;
+  color: var(--register-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.register-form {
+  display: grid;
+  gap: 21px;
+  margin-top: 34px;
+}
+
+.register-field {
+  display: grid;
+  gap: 8px;
+}
+
+.register-field label,
+.register-label-row span {
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.register-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.register-label-row span {
+  color: var(--register-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.register-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 49px;
+  padding: 0 14px;
+  border: 1px solid #cbd7ce;
+  border-radius: 4px;
+  outline: none;
+  background: #fffefa;
+  color: var(--register-ink);
+  font: inherit;
+  font-size: 14px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.register-field input::placeholder {
+  color: #9aa6a0;
+}
+
+.register-field input:hover {
+  border-color: #9eb9a8;
+}
+
+.register-field input:focus {
+  border-color: var(--register-green);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(53, 107, 89, 0.13);
+}
+
+.register-submit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 7px;
+  padding: 0 17px 0 19px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--register-ink);
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.register-submit span:last-child {
+  color: #c4dfc9;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.register-submit:hover:not(:disabled) {
+  background: var(--register-green);
+  transform: translateY(-1px);
+}
+
+.register-submit:focus-visible {
+  outline: 3px solid rgba(212, 119, 94, 0.45);
+  outline-offset: 3px;
+}
+
+.register-submit:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.register-feedback {
+  margin: 20px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid;
+  border-radius: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.register-feedback-error {
+  border-color: #bd594e;
+  background: #fff0ed;
+  color: #8f3b34;
+}
+
+.register-feedback-success {
+  border-color: var(--register-green);
+  background: #eaf4eb;
+  color: #2f614c;
+}
+
+.register-footer {
+  margin: 22px auto 0;
+  color: #82908a;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 800px) {
+  .register-page {
+    display: block;
+  }
+
+  .register-aside {
+    min-height: auto;
+    padding: 28px 24px 34px;
+  }
+
+  .register-aside::after {
+    right: -116px;
+    bottom: -144px;
+  }
+
+  .register-intro {
+    padding: 58px 0 30px;
+  }
+
+  .register-intro h1 {
+    max-width: 560px;
+    font-size: clamp(38px, 10vw, 58px);
+  }
+
+  .register-note {
+    display: none;
+  }
+
+  .register-panel {
+    min-height: auto;
+    padding: 34px 24px 42px;
+  }
+}
+
+@media (max-width: 420px) {
+  .register-card {
+    padding: 25px 20px;
+  }
+
+  .register-card-heading h2 {
+    font-size: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .register-field input,
+  .register-submit {
+    transition: none;
+  }
+}
