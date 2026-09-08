@@ -14,7 +14,7 @@ function Login() {
   return (
     <main className="login-page">
       <section className="login-story" aria-labelledby="login-story-title">
-        <Link className="login-brand" to="/" aria-label="Ir a la página principal de Our House">
+        <Link className="login-brand" to="/login" aria-label="Our House, inicio de sesión">
           <span className="login-brand-mark">OH</span>
           <span>our house</span>
         </Link>
@@ -64,9 +64,10 @@ function Login() {
             </button>
           </form>
 
-          <p className="login-signup">
-            ¿Todavía no tienes cuenta? <Link to="/register">Crear cuenta</Link>
-          </p>
+          <div className="login-signup">
+            <span>¿Todavía no tienes cuenta?</span>
+            <Link className="login-register-action" to="/register">Crear cuenta</Link>
+          </div>
         </div>
       </section>
     </main>

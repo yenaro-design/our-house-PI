@@ -271,20 +271,36 @@
 }
 
 .login-signup {
+  display: grid;
+  gap: 12px;
   margin: 26px 0 0;
   color: var(--login-muted);
   font-size: 13px;
   text-align: center;
 }
 
-.login-signup a {
+.login-register-action {
+  display: flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #bdd0c2;
+  border-radius: 4px;
   color: var(--login-green);
   font-weight: 700;
   text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
 }
 
-.login-signup a:hover {
+.login-register-action:hover {
+  border-color: var(--login-green);
+  background: var(--login-sage);
   color: var(--login-coral);
+}
+
+.login-register-action:focus-visible {
+  outline: 3px solid rgba(212, 119, 94, 0.45);
+  outline-offset: 3px;
 }
 
 @media (max-width: 800px) {
