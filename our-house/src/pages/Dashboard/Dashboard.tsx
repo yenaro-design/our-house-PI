@@ -1,4 +1,7 @@
-import { Link } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { User as UserIcon, LogOut, Settings } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import "./Dashboard.css";
 
 const expenses = [
@@ -14,10 +17,42 @@ const tasks = [
 ];
 
 function Dashboard() {
+  const navigate = useNavigate();
+  const { user, userProfile, logout } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar dropdown al hacer click afuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const displayName =
+    userProfile?.nombre || user?.displayName || user?.email?.split("@")[0] || "Valentina Pérez";
+  const firstName = displayName.split(" ")[0] || "Valentina";
+  const userInitials =
+    displayName
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "VP";
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
+
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
-        <Link className="dashboard-brand" to="/" aria-label="Our House, página principal">
+        <Link className="dashboard-brand" to="/dashboard" aria-label="Our House, página principal">
           <span className="dashboard-brand-mark">OH</span>
           <span>our house</span>
         </Link>
@@ -26,12 +61,54 @@ function Dashboard() {
           <a className="dashboard-nav-link dashboard-nav-link-active" href="#resumen">Resumen</a>
           <a className="dashboard-nav-link" href="#gastos">Gastos</a>
           <a className="dashboard-nav-link" href="#tareas">Tareas</a>
+          <Link className="dashboard-nav-link" to="/profile">Perfil</Link>
         </nav>
 
-        <div className="dashboard-user">
-          <span className="dashboard-avatar">VP</span>
-          <span className="dashboard-user-name">Valentina Pérez</span>
-          <button className="dashboard-menu" type="button" aria-label="Abrir menú de usuario">•••</button>
+        <div className="dashboard-user" ref={dropdownRef}>
+          <button
+            type="button"
+            className="dashboard-user-button"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            aria-expanded={dropdownOpen}
+            aria-label="Abrir opciones de cuenta"
+            id="btn-user-account"
+          >
+            <span className="dashboard-avatar">{userInitials}</span>
+            <span className="dashboard-user-name">{displayName}</span>
+            <span className="dashboard-menu" aria-hidden="true">•••</span>
+          </button>
+
+          {dropdownOpen && (
+            <div className="dashboard-dropdown" role="menu">
+              <Link
+                to="/profile"
+                className="dashboard-dropdown-item"
+                onClick={() => setDropdownOpen(false)}
+                role="menuitem"
+                id="link-go-profile"
+              >
+                <UserIcon size={14} /> Mi Perfil (Editar datos)
+              </Link>
+              <Link
+                to="/profile"
+                className="dashboard-dropdown-item"
+                onClick={() => setDropdownOpen(false)}
+                role="menuitem"
+              >
+                <Settings size={14} /> Configuración de cuenta
+              </Link>
+              <hr style={{ margin: "4px 0", border: 0, borderTop: "1px solid var(--dashboard-line)" }} />
+              <button
+                type="button"
+                className="dashboard-dropdown-item dashboard-dropdown-danger"
+                onClick={handleLogout}
+                role="menuitem"
+                id="btn-menu-logout"
+              >
+                <LogOut size={14} /> Cerrar sesión
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -39,7 +116,7 @@ function Dashboard() {
         <div className="dashboard-welcome">
           <div>
             <p className="dashboard-eyebrow">Martes, 9 de septiembre</p>
-            <h1>Buenos días, Valentina.</h1>
+            <h1>Buenos días, {firstName}.</h1>
             <p className="dashboard-subtitle">Este es el estado de <strong>Casa Arce</strong> esta semana.</p>
           </div>
           <button className="dashboard-primary-action" type="button"><span aria-hidden="true">+</span> Registrar gasto</button>

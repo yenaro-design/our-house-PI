@@ -36,14 +36,18 @@ function Register() {
       await registerUser(nombre, email, password);
       navigate("/dashboard", { replace: true });
     } catch (error: unknown) {
-      console.error(error);
-
       const errorCode =
         typeof error === "object" && error !== null && "code" in error
-          ? error.code
+          ? (error as { code: string }).code
           : undefined;
 
       switch (errorCode) {
+        case "auth/configuration-not-found":
+          setError(
+            "El servicio de autenticación de Firebase no se encuentra configurado para este proyecto. Intenta de nuevo o contacta al administrador."
+          );
+          break;
+
         case "auth/email-already-in-use":
           setError("Ya existe una cuenta con este correo.");
           break;
@@ -53,11 +57,15 @@ function Register() {
           break;
 
         case "auth/weak-password":
-          setError("La contraseña no cumple los requisitos mínimos.");
+          setError("La contraseña no cumple los requisitos mínimos (al menos 6 caracteres).");
+          break;
+
+        case "auth/network-request-failed":
+          setError("Error de conexión con el servidor. Comprueba tu conexión a internet.");
           break;
 
         default:
-          setError("No fue posible registrar el usuario.");
+          setError("No fue posible registrar el usuario. Revisa los datos ingresados.");
       }
     } finally {
       setLoading(false);

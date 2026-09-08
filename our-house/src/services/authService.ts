@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 
 import { auth, db } from "../firebase/config";
+import { setLocalProfile } from "./userService";
 
 export const registerUser = async (
   nombre: string,
@@ -28,21 +29,33 @@ export const registerUser = async (
 
   const user = userCredential.user;
 
-  // ponytail: asigna displayName en Auth y crea documento inicial en users
+  // Asigna displayName en Auth y registra perfil inicial tanto localmente como en Firestore
+  const initialProfile = {
+    id: user.uid,
+    nombre: normalizedName,
+    email: user.email || normalizedEmail,
+    ingresoMensual: 0,
+    telefono: "",
+    createdAt: new Date().toISOString(),
+  };
+
+  setLocalProfile(user.uid, initialProfile);
+
   try {
     await updateProfile(user, {
       displayName: normalizedName,
     });
+  } catch (authErr) {
+    console.warn("Aviso al asignar displayName inicial:", authErr);
+  }
 
+  try {
     await setDoc(doc(db, "users", user.uid), {
-      id: user.uid,
-      nombre: normalizedName,
-      email: user.email,
-      ingresoMensual: 0,
+      ...initialProfile,
       createdAt: serverTimestamp(),
     });
   } catch (profileError) {
-    console.error("No fue posible guardar el perfil del usuario", profileError);
+    console.warn("Perfil registrado localmente; sincronización en la nube pendiente de permisos:", profileError);
   }
 
   return user;

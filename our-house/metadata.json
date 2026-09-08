@@ -1,0 +1,6 @@
+{
+  "name": "Our House",
+  "description": "Aplicación para organizar gastos, saldos y tareas compartidas en el hogar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

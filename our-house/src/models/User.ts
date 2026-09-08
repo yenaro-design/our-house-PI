@@ -3,5 +3,8 @@ export interface User {
   nombre: string;
   email: string;
   ingresoMensual: number;
+  telefono?: string;
   viviendaId?: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
 }

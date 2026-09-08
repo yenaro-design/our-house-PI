@@ -40,6 +40,11 @@ function Login() {
           : undefined;
 
       switch (code) {
+        case "auth/configuration-not-found":
+          setError(
+            "El servicio de autenticación no está disponible en este proyecto. Puedes probar con la cuenta de demostración."
+          );
+          break;
         case "auth/invalid-credential":
         case "auth/user-not-found":
         case "auth/wrong-password":
@@ -51,9 +56,27 @@ function Login() {
         case "auth/too-many-requests":
           setError("Demasiados intentos fallidos. Espera unos momentos.");
           break;
+        case "auth/network-request-failed":
+          setError("Error de red. Verifica tu conexión a internet.");
+          break;
         default:
           setError("No se pudo iniciar sesión. Revisa tus datos.");
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setEmail("test@example.com");
+    setPassword("password123");
+    setError("");
+    try {
+      setLoading(true);
+      await loginUser("test@example.com", "password123");
+      navigate("/dashboard");
+    } catch {
+      setError("No se pudo conectar a la cuenta de prueba. Intenta nuevamente.");
     } finally {
       setLoading(false);
     }
@@ -122,9 +145,31 @@ function Login() {
               />
             </div>
 
-            <button className="login-submit" type="submit" disabled={loading}>
+            <button className="login-submit" type="submit" disabled={loading} id="btn-login-submit">
               <span>{loading ? "Entrando..." : "Entrar a mi casa"}</span>
               <span aria-hidden="true">→</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={loading}
+              id="btn-login-demo"
+              style={{
+                marginTop: "10px",
+                width: "100%",
+                padding: "10px 14px",
+                background: "rgba(229, 239, 229, 0.5)",
+                border: "1px dashed var(--login-green, #234338)",
+                borderRadius: "8px",
+                color: "var(--login-green, #234338)",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              Probar con cuenta de demostración
             </button>
           </form>
 
