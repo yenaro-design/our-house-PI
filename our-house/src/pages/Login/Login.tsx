@@ -1,8 +1,17 @@
-import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
+import type { FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { loginUser } from "../../services/authService";
 import "./Login.css";
 
 function Login() {
+  const navigate = useNavigate();
   const location = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const registrationMessage =
     typeof location.state === "object" &&
     location.state !== null &&
@@ -10,6 +19,45 @@ function Login() {
     typeof location.state.message === "string"
       ? location.state.message
       : "";
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+
+    if (!email.trim() || !password) {
+      setError("Por favor completa todos los campos.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await loginUser(email, password);
+      navigate("/dashboard");
+    } catch (err: unknown) {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? (err as { code: string }).code
+          : undefined;
+
+      switch (code) {
+        case "auth/invalid-credential":
+        case "auth/user-not-found":
+        case "auth/wrong-password":
+          setError("Correo o contraseña incorrectos.");
+          break;
+        case "auth/invalid-email":
+          setError("El correo no es válido.");
+          break;
+        case "auth/too-many-requests":
+          setError("Demasiados intentos fallidos. Espera unos momentos.");
+          break;
+        default:
+          setError("No se pudo iniciar sesión. Revisa tus datos.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <main className="login-page">
@@ -44,10 +92,18 @@ function Login() {
             <p className="login-feedback" role="status">{registrationMessage}</p>
           )}
 
-          <form className="login-form">
+          <form className="login-form" onSubmit={handleSubmit}>
             <div className="login-field">
               <label htmlFor="login-email">Correo electrónico</label>
-              <input id="login-email" type="email" placeholder="tu-correo@ejemplo.com" autoComplete="email" />
+              <input
+                id="login-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu-correo@ejemplo.com"
+                required
+                autoComplete="email"
+              />
             </div>
 
             <div className="login-field">
@@ -55,14 +111,24 @@ function Login() {
                 <label htmlFor="login-password">Contraseña</label>
                 <button className="login-help" type="button">¿La olvidaste?</button>
               </div>
-              <input id="login-password" type="password" placeholder="Ingresa tu contraseña" autoComplete="current-password" />
+              <input
+                id="login-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Ingresa tu contraseña"
+                required
+                autoComplete="current-password"
+              />
             </div>
 
-            <button className="login-submit" type="button">
-              <span>Entrar a mi casa</span>
+            <button className="login-submit" type="submit" disabled={loading}>
+              <span>{loading ? "Entrando..." : "Entrar a mi casa"}</span>
               <span aria-hidden="true">→</span>
             </button>
           </form>
+
+          {error && <p className="login-feedback login-feedback-error" role="alert">{error}</p>}
 
           <div className="login-signup">
             <span>¿Todavía no tienes cuenta?</span>

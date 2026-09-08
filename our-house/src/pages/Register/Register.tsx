@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { registerUser } from "../../services/authService";
 import "./Register.css";
 
@@ -34,10 +34,7 @@ function Register() {
       setLoading(true);
 
       await registerUser(nombre, email, password);
-      navigate("/login", {
-        replace: true,
-        state: { message: "Usuario registrado correctamente. Ya puedes iniciar sesión." },
-      });
+      navigate("/dashboard", { replace: true });
     } catch (error: unknown) {
       console.error(error);
 
@@ -70,10 +67,10 @@ function Register() {
   return (
     <main className="register-page">
       <section className="register-aside" aria-labelledby="register-intro-title">
-        <div className="register-brand" aria-label="Our House">
+        <Link className="register-brand" to="/login" aria-label="Our House">
           <span className="register-brand-mark">OH</span>
           <span>our house</span>
-        </div>
+        </Link>
 
         <div className="register-intro">
           <p className="register-eyebrow">Tu vivienda, en orden</p>
@@ -149,6 +146,11 @@ function Register() {
 
           {error && <p className="register-feedback register-feedback-error" role="alert">{error}</p>}
           {mensaje && <p className="register-feedback register-feedback-success" role="status">{mensaje}</p>}
+
+          <div className="register-login">
+            <span>¿Ya tienes una cuenta?</span>
+            <Link className="register-login-action" to="/login">Iniciar sesión</Link>
+          </div>
         </div>
 
         <p className="register-footer">Tus datos se usarán únicamente para gestionar tu cuenta.</p>

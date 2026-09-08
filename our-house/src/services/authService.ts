@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth";
 
@@ -27,6 +28,7 @@ export const registerUser = async (
 
   const user = userCredential.user;
 
+  // ponytail: asigna displayName en Auth y crea documento inicial en users
   try {
     await updateProfile(user, {
       displayName: normalizedName,
@@ -36,6 +38,7 @@ export const registerUser = async (
       id: user.uid,
       nombre: normalizedName,
       email: user.email,
+      ingresoMensual: 0,
       createdAt: serverTimestamp(),
     });
   } catch (profileError) {
@@ -43,4 +46,13 @@ export const registerUser = async (
   }
 
   return user;
+};
+
+export const loginUser = async (email: string, password: string) => {
+  const userCredential = await signInWithEmailAndPassword(
+    auth,
+    email.trim().toLowerCase(),
+    password
+  );
+  return userCredential.user;
 };

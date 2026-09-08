@@ -50,6 +50,7 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: lowercase;
+  text-decoration: none;
 }
 
 .register-brand-mark {
@@ -278,6 +279,39 @@
   border-color: var(--register-green);
   background: #eaf4eb;
   color: #2f614c;
+}
+
+.register-login {
+  display: grid;
+  gap: 12px;
+  margin: 26px 0 0;
+  color: var(--register-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.register-login-action {
+  display: flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #bdd0c2;
+  border-radius: 4px;
+  color: var(--register-green);
+  font-weight: 700;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.register-login-action:hover {
+  border-color: var(--register-green);
+  background: var(--register-sage);
+  color: var(--register-coral);
+}
+
+.register-login-action:focus-visible {
+  outline: 3px solid rgba(212, 119, 94, 0.45);
+  outline-offset: 3px;
 }
 
 .register-footer {

@@ -164,6 +164,12 @@
   line-height: 1.4;
 }
 
+.login-feedback-error {
+  border-left-color: #bd594e;
+  background: #fff0ed;
+  color: #8f3b34;
+}
+
 .login-form {
   display: grid;
   gap: 21px;
