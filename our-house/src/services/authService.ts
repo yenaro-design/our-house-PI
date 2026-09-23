@@ -11,8 +11,33 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
-import { auth, db } from "../firebase/config";
+import { auth, db, hasFirebaseConfig } from "../firebase/config";
 import { setLocalProfile } from "./userService";
+
+const createLocalUser = (nombre: string, email: string) => {
+  const fallbackId = "user-" + Date.now();
+  const initialProfile = {
+    id: fallbackId,
+    nombre,
+    email,
+    ingresoMensual: 0,
+    telefono: "",
+    createdAt: new Date().toISOString(),
+  };
+
+  setLocalProfile(fallbackId, initialProfile);
+  const fallbackUser = {
+    uid: fallbackId,
+    email,
+    displayName: nombre,
+    getIdToken: async () => "demo-token",
+  };
+  localStorage.setItem("our_house_active_session", JSON.stringify(fallbackUser));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("our_house:auth_change"));
+  }
+  return fallbackUser as unknown as User;
+};
 
 export const registerUser = async (
   nombre: string,
@@ -21,6 +46,11 @@ export const registerUser = async (
 ) => {
   const normalizedName = nombre.trim();
   const normalizedEmail = email.trim().toLowerCase();
+
+  if (!hasFirebaseConfig) {
+    console.warn("Firebase no está configurado; se usará una sesión local.");
+    return createLocalUser(normalizedName, normalizedEmail);
+  }
 
   try {
     const userCredential = await createUserWithEmailAndPassword(
@@ -70,27 +100,7 @@ export const registerUser = async (
       errorCode === "auth/network-request-failed"
     ) {
       console.warn("Registro con sesión local segura:", err);
-      const fallbackId = "user-" + Date.now();
-      const initialProfile = {
-        id: fallbackId,
-        nombre: normalizedName,
-        email: normalizedEmail,
-        ingresoMensual: 0,
-        telefono: "",
-        createdAt: new Date().toISOString(),
-      };
-      setLocalProfile(fallbackId, initialProfile);
-      const fallbackUser = {
-        uid: fallbackId,
-        email: normalizedEmail,
-        displayName: normalizedName,
-        getIdToken: async () => "demo-token",
-      };
-      localStorage.setItem("our_house_active_session", JSON.stringify(fallbackUser));
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("our_house:auth_change"));
-      }
-      return fallbackUser as unknown as User;
+      return createLocalUser(normalizedName, normalizedEmail);
     }
     throw err;
   }

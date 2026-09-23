@@ -115,6 +115,18 @@ function Dashboard() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const tabs = ["resumen", "gastos", "integrantes", "tareas"] as const;
+    const syncTabFromHash = () => {
+      const requestedTab = window.location.hash.slice(1) as (typeof tabs)[number];
+      setActiveTab(tabs.includes(requestedTab) ? requestedTab : "resumen");
+    };
+
+    syncTabFromHash();
+    window.addEventListener("hashchange", syncTabFromHash);
+    return () => window.removeEventListener("hashchange", syncTabFromHash);
+  }, []);
+
   // Fetch dwelling data and related entities
   useEffect(() => {
     let isSubscribed = true;
@@ -994,74 +1006,6 @@ function Dashboard() {
           </article>
         </div>
 
-        {/* Tab Controls */}
-        <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid var(--dashboard-line)", margin: "32px 0 24px" }}>
-          <button
-            type="button"
-            onClick={() => setActiveTab("resumen")}
-            style={{
-              padding: "10px 18px",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === "resumen" ? "2px solid var(--dashboard-green)" : "2px solid transparent",
-              color: activeTab === "resumen" ? "var(--dashboard-green)" : "var(--dashboard-muted)",
-              fontWeight: 700,
-              fontSize: "14px",
-              cursor: "pointer",
-            }}
-          >
-            Vista General
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("gastos")}
-            style={{
-              padding: "10px 18px",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === "gastos" ? "2px solid var(--dashboard-green)" : "2px solid transparent",
-              color: activeTab === "gastos" ? "var(--dashboard-green)" : "var(--dashboard-muted)",
-              fontWeight: 700,
-              fontSize: "14px",
-              cursor: "pointer",
-            }}
-          >
-            Historial de Gastos
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("integrantes")}
-            style={{
-              padding: "10px 18px",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === "integrantes" ? "2px solid var(--dashboard-green)" : "2px solid transparent",
-              color: activeTab === "integrantes" ? "var(--dashboard-green)" : "var(--dashboard-muted)",
-              fontWeight: 700,
-              fontSize: "14px",
-              cursor: "pointer",
-            }}
-          >
-            Integrantes y Saldos
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("tareas")}
-            style={{
-              padding: "10px 18px",
-              background: "none",
-              border: "none",
-              borderBottom: activeTab === "tareas" ? "2px solid var(--dashboard-green)" : "2px solid transparent",
-              color: activeTab === "tareas" ? "var(--dashboard-green)" : "var(--dashboard-muted)",
-              fontWeight: 700,
-              fontSize: "14px",
-              cursor: "pointer",
-            }}
-          >
-            Tareas Domésticas
-          </button>
-        </div>
-
         {/* TAB 1: RESUMEN / VISTA GENERAL */}
         {activeTab === "resumen" && (
           <div className="dashboard-grid">
@@ -1194,7 +1138,7 @@ function Dashboard() {
 
         {/* TAB 2: HISTORIAL FILTRADO DE GASTOS (HU12) */}
         {activeTab === "gastos" && (
-          <section>
+          <section className="dashboard-tab-panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
               <div>
                 <h2 style={{ fontSize: "22px", margin: "0 0 4px", color: "var(--dashboard-ink)" }}>
@@ -1393,7 +1337,7 @@ function Dashboard() {
 
         {/* TAB 3: INTEGRANTES Y SALDOS (HU07, HU08, HU09) */}
         {activeTab === "integrantes" && (
-          <section>
+          <section className="dashboard-tab-panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
               <div>
                 <h2 style={{ fontSize: "22px", margin: "0 0 4px", color: "var(--dashboard-ink)" }}>
@@ -1547,7 +1491,7 @@ function Dashboard() {
 
         {/* TAB 4: TAREAS DOMÉSTICAS */}
         {activeTab === "tareas" && (
-          <section>
+          <section className="dashboard-tab-panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
               <div>
                 <h2 style={{ fontSize: "22px", margin: "0 0 4px", color: "var(--dashboard-ink)" }}>
@@ -1693,7 +1637,7 @@ function Dashboard() {
                   <input
                     type="number"
                     min="1"
-                    step="1000"
+                    step="1"
                     placeholder="Ej: 150000"
                     value={gastoMonto}
                     onChange={(e) => setGastoMonto(e.target.value)}
@@ -1974,7 +1918,7 @@ function Dashboard() {
                 <input
                   type="number"
                   min="1"
-                  step="1000"
+                  step="1"
                   value={nuevoIngresoInput}
                   onChange={(e) => setNuevoIngresoInput(e.target.value)}
                   placeholder="Ej: 3200000"

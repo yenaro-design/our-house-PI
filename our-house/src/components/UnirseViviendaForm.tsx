@@ -229,7 +229,7 @@ function UnirseViviendaForm() {
                             id="ingreso-confirmacion"
                             type="number"
                             min="1"
-                            step="1000"
+                            step="1"
                             placeholder="Ej: 2200000"
                             value={ingreso}
                             onChange={(e) => setIngreso(e.target.value)}

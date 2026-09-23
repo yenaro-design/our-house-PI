@@ -59,6 +59,12 @@ function Register() {
           );
           break;
 
+        case "auth/operation-not-allowed":
+          setError(
+            "El registro con correo y contraseña está deshabilitado. Activa este proveedor en Firebase Authentication."
+          );
+          break;
+
         case "auth/email-already-in-use":
           setError("Ya existe una cuenta con este correo.");
           break;
@@ -73,6 +79,14 @@ function Register() {
 
         case "auth/network-request-failed":
           setError("Error de conexión con el servidor. Comprueba tu conexión a internet.");
+          break;
+
+        case "auth/too-many-requests":
+          setError("Demasiados intentos. Espera unos momentos y vuelve a intentarlo.");
+          break;
+
+        case "auth/unauthorized-domain":
+          setError("Este dominio no está autorizado para registrar usuarios en Firebase.");
           break;
 
         default:

@@ -363,6 +363,9 @@ function Profile() {
           <Link className="profile-nav-link" to="/dashboard#gastos">
             Gastos
           </Link>
+          <Link className="profile-nav-link" to="/dashboard#integrantes">
+            Integrantes
+          </Link>
           <Link className="profile-nav-link" to="/dashboard#tareas">
             Tareas
           </Link>
@@ -577,7 +580,7 @@ function Profile() {
                       id="input-ingreso"
                       type="number"
                       min="0"
-                      step="1000"
+                      step="1"
                       className={`profile-input ${
                         formErrors.ingresoMensual ? "profile-input-error" : ""
                       }`}

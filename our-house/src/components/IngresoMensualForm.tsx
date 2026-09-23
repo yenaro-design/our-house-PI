@@ -150,7 +150,7 @@ function IngresoMensualForm() {
                         id="ingreso"
                         type="number"
                         min="1"
-                        step="1000"
+                        step="1"
                         value={ingreso}
                         onChange={(e) => setIngreso(e.target.value)}
                         placeholder="Ej: 2500000"

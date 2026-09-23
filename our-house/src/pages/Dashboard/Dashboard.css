@@ -327,6 +327,10 @@
   margin-top: 54px;
 }
 
+.dashboard-tab-panel {
+  margin-top: 26px;
+}
+
 .dashboard-section {
   min-width: 0;
   padding: 25px 25px 12px;

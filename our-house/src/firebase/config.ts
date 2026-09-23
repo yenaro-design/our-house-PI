@@ -3,6 +3,13 @@ import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
+const hasFirebaseConfig = Boolean(
+    import.meta.env.VITE_FIREBASE_API_KEY &&
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN &&
+    import.meta.env.VITE_FIREBASE_PROJECT_ID &&
+    import.meta.env.VITE_FIREBASE_APP_ID
+)
+
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyMockKeyForDevEnvironment12345678',
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'our-house-app.firebaseapp.com',
@@ -15,14 +22,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 let analytics: ReturnType<typeof getAnalytics> | null = null
 if (typeof window !== 'undefined') {
+    if (!hasFirebaseConfig) {
+        analytics = null
+    } else {
     try {
         analytics = getAnalytics(app)
     } catch {
         analytics = null
+    }
     }
 }
 
 const auth = getAuth(app)
 const db = getFirestore(app)
 
-export { app, analytics, auth, db }
+export { app, analytics, auth, db, hasFirebaseConfig }
