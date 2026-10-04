@@ -1,5 +1,6 @@
 import {
     collection,
+    deleteDoc,
     doc,
     getDocs,
     query,
@@ -21,6 +22,13 @@ export interface ActualizarGastoInput {
     participantes: string[];
     fecha: string;
     categoria?: string;
+    administradorId: string;
+    usuarioId: string;
+}
+
+export interface EliminarGastoInput {
+    gastoId: string;
+    viviendaId: string;
     administradorId: string;
     usuarioId: string;
 }
@@ -55,6 +63,11 @@ function replaceLocalExpense(updatedExpense: Expense) {
         local.unshift(updatedExpense);
     }
     saveLocalExpenses(local);
+}
+
+function removeLocalExpense(gastoId: string, viviendaId: string) {
+    const local = getLocalExpenses();
+    saveLocalExpenses(local.filter((expense) => expense.id !== gastoId || expense.viviendaId !== viviendaId));
 }
 
 /**
@@ -329,6 +342,25 @@ export async function actualizarGasto(
     replaceLocalExpense(gastoActualizado);
 
     return gastoActualizado;
+}
+
+/**
+ * HU14 — Elimina un gasto y permite que los saldos se deriven de los gastos restantes.
+ */
+export async function eliminarGasto(datos: EliminarGastoInput): Promise<void> {
+    if (datos.usuarioId !== datos.administradorId) {
+        throw new Error('Solo el administrador de la vivienda puede eliminar gastos.');
+    }
+
+    if (!datos.gastoId || !datos.viviendaId) {
+        throw new Error('El gasto seleccionado no es válido.');
+    }
+
+    if (isFirebasePersistenceAvailable(datos.usuarioId)) {
+        await deleteDoc(doc(db, 'expenses', datos.gastoId));
+    }
+
+    removeLocalExpense(datos.gastoId, datos.viviendaId);
 }
 
 /**
