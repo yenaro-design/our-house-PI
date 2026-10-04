@@ -6,7 +6,7 @@ import {
     setDoc,
     where,
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, isFirebasePersistenceAvailable } from '../firebase/config';
 import type { Expense, ExpenseShare } from '../models/Expense';
 import type { User } from '../models/User';
 
@@ -44,6 +44,17 @@ function saveLocalExpenses(expenses: Expense[]) {
     } catch (e) {
         console.warn('Error al guardar gastos locales:', e);
     }
+}
+
+function replaceLocalExpense(updatedExpense: Expense) {
+    const local = getLocalExpenses();
+    const expenseIndex = local.findIndex((expense) => expense.id === updatedExpense.id);
+    if (expenseIndex >= 0) {
+        local[expenseIndex] = updatedExpense;
+    } else {
+        local.unshift(updatedExpense);
+    }
+    saveLocalExpenses(local);
 }
 
 /**
@@ -220,18 +231,12 @@ export async function registrarGasto(
         createdAt: new Date().toISOString(),
     };
 
-    // 1. Guardar localmente
-    const local = getLocalExpenses();
-    local.unshift(nuevoGasto);
-    saveLocalExpenses(local);
-
-    // 2. Guardar en Firestore
-    try {
+    if (isFirebasePersistenceAvailable()) {
         const gastoRef = doc(db, 'expenses', gastoId);
         await setDoc(gastoRef, nuevoGasto);
-    } catch (err) {
-        console.warn('Aviso: guardando gasto en almacenamiento local (Firestore no disponible):', err);
     }
+
+    replaceLocalExpense(nuevoGasto);
 
     return nuevoGasto;
 }
@@ -314,17 +319,14 @@ export async function actualizarGasto(
         residuoAjustado,
     };
 
+    if (!isFirebasePersistenceAvailable(datos.usuarioId)) {
+        replaceLocalExpense(gastoActualizado);
+        return gastoActualizado;
+    }
+
     const gastoRef = doc(db, 'expenses', gastoActualizado.id);
     await setDoc(gastoRef, gastoActualizado);
-
-    const local = getLocalExpenses();
-    const indiceGasto = local.findIndex((gasto) => gasto.id === gastoActualizado.id);
-    if (indiceGasto >= 0) {
-        local[indiceGasto] = gastoActualizado;
-    } else {
-        local.unshift(gastoActualizado);
-    }
-    saveLocalExpenses(local);
+    replaceLocalExpense(gastoActualizado);
 
     return gastoActualizado;
 }

@@ -324,7 +324,19 @@ function Dashboard() {
       setActionSuccess(mensaje);
       setTimeout(() => setActionSuccess(null), 3500);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Error al registrar el gasto.");
+      const firebaseCode =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code?: unknown }).code)
+          : "";
+      const errorMessage = err instanceof Error ? err.message : "";
+      const isPermissionError =
+        firebaseCode === "permission-denied" || errorMessage.includes("Missing or insufficient permissions");
+
+      setActionError(
+        editingExpense && isPermissionError
+          ? "Firestore rechazó la actualización por permisos insuficientes. Verifica que las reglas permitan al administrador actualizar este gasto y que la sesión actual corresponda al administrador de la vivienda."
+          : errorMessage || (editingExpense ? "No se pudo actualizar el gasto." : "Error al registrar el gasto.")
+      );
     } finally {
       setGuardandoGasto(false);
     }
@@ -756,7 +768,7 @@ function Dashboard() {
         )}
 
         {/* Global Feedback Banners */}
-        {actionError && (
+        {actionError && !modalGastoOpen && (
           <div
             style={{
               color: "#b91c1c",
@@ -1662,6 +1674,26 @@ function Dashboard() {
             </div>
 
             <form onSubmit={handleGuardarGasto} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {actionError && (
+                <div
+                  role="alert"
+                  style={{
+                    color: "#b91c1c",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    padding: "12px 14px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                  }}
+                >
+                  <AlertCircle size={17} style={{ flexShrink: 0, marginTop: "1px" }} />
+                  <span>{actionError}</span>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: "block", fontSize: "13px", fontWeight: 700, marginBottom: "6px", color: "var(--dashboard-ink)" }}>
                   Concepto o descripción *
