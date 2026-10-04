@@ -83,6 +83,7 @@ function Dashboard() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [retiroBloqueadoId, setRetiroBloqueadoId] = useState<string | null>(null);
 
   // Expense Form State (HU10, HU11)
   const [gastoConcepto, setGastoConcepto] = useState("");
@@ -364,6 +365,7 @@ function Dashboard() {
     if (!dwelling || !user) return;
     setActionError(null);
     setActionSuccess(null);
+    setRetiroBloqueadoId(null);
 
     const saldo = saldosConsolidados[member.id] || 0;
     if (Math.abs(saldo) > 0.01) {
@@ -376,6 +378,7 @@ function Dashboard() {
       setActionError(
         `Acción bloqueada: No es posible retirar a "${member.nombre}". Posee un ${tipo} de ${montoFormato}. El saldo debe ser exactamente $0 COP para autorizar el retiro.`
       );
+      setRetiroBloqueadoId(member.id);
       return;
     }
 
@@ -737,6 +740,8 @@ function Dashboard() {
         {/* Global Feedback Banners */}
         {actionError && (
           <div
+            role="alert"
+            aria-live="assertive"
             style={{
               color: "#b91c1c",
               background: "#fef2f2",
@@ -1458,26 +1463,36 @@ function Dashboard() {
                         <td style={{ textAlign: "right" }}>
                           {/* HU08: Retirar integrante por administrador */}
                           {dwelling?.administradorId === user?.uid && !esCurrentUser && (
-                            <button
-                              type="button"
-                              onClick={() => handleRetirarIntegrante(m)}
-                              style={{
-                                background: "#fff5f5",
-                                color: "#c53030",
-                                border: "1px solid #feb2b2",
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                fontSize: "12px",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
-                              title="Retirar a este integrante de la vivienda (requiere saldo $0)"
-                            >
-                              <Trash2 size={13} /> Retirar
-                            </button>
+                            <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+                              <button
+                                type="button"
+                                onClick={() => handleRetirarIntegrante(m)}
+                                style={{
+                                  background: "#fff5f5",
+                                  color: "#c53030",
+                                  border: "1px solid #feb2b2",
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                }}
+                                title="Retirar a este integrante de la vivienda (requiere saldo $0)"
+                              >
+                                <Trash2 size={13} /> Retirar
+                              </button>
+                              {retiroBloqueadoId === m.id && saldo !== 0 && (
+                                <span
+                                  role="alert"
+                                  style={{ maxWidth: "220px", color: "#b91c1c", fontSize: "11px", lineHeight: 1.3 }}
+                                >
+                                  Retiro bloqueado: debe estar al día ($0).
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>
