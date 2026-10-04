@@ -1,5 +1,5 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore'
-import { db } from '../firebase/config'
+import { db, isFirebasePersistenceAvailable } from '../firebase/config'
 import { getLocalProfile, setLocalProfile, createDefaultProfile } from './userService'
 
 /**-------------------------------------------------------------------------------------------------------
@@ -13,19 +13,17 @@ export async function guardarIngresoMensual(
         throw new Error('El ingreso mensual debe ser un número mayor a cero.')
     }
 
-    const local = getLocalProfile(userId) || createDefaultProfile(userId)
-    setLocalProfile(userId, { ...local, ingresoMensual })
-
-    try {
+    if (isFirebasePersistenceAvailable(userId)) {
         const userRef = doc(db, 'users', userId)
         await setDoc(
             userRef,
             { ingresoMensual },
             { merge: true } 
         )
-    } catch (err) {
-        console.warn("Aviso: ingreso mensual actualizado en almacenamiento local:", err)
     }
+
+    const local = getLocalProfile(userId) || createDefaultProfile(userId)
+    setLocalProfile(userId, { ...local, ingresoMensual })
 }
 
 /**-----------------------------------------------------------------------------------------------------------------------

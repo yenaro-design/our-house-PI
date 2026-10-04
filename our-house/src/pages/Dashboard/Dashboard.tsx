@@ -719,6 +719,7 @@ function Dashboard() {
                 onClick={() => {
                   setDropdownOpen(false);
                   setNuevoIngresoInput(String(userProfile?.ingresoMensual || ""));
+                  setActionError(null);
                   setModalIngresoOpen(true);
                 }}
                 role="menuitem"
@@ -768,7 +769,7 @@ function Dashboard() {
         )}
 
         {/* Global Feedback Banners */}
-        {actionError && !modalGastoOpen && (
+        {actionError && !modalGastoOpen && !modalIngresoOpen && !modalTareaOpen && !selectedExpenseForDetail && (
           <div
             style={{
               color: "#b91c1c",
@@ -1017,6 +1018,7 @@ function Dashboard() {
                 type="button"
                 onClick={() => {
                   setNuevoIngresoInput(String(userProfile?.ingresoMensual || ""));
+                  setActionError(null);
                   setModalIngresoOpen(true);
                 }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--dashboard-green)", fontSize: "11px", fontWeight: 700 }}
@@ -2023,6 +2025,25 @@ function Dashboard() {
             </p>
 
             <form onSubmit={handleGuardarIngreso} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {actionError && (
+                <div
+                  role="alert"
+                  style={{
+                    color: "#b91c1c",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    padding: "12px 14px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                    <AlertCircle size={17} style={{ flexShrink: 0, marginTop: "1px" }} />
+                    <span>{actionError}</span>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: "block", fontSize: "13px", fontWeight: 700, marginBottom: "6px" }}>
                   Monto mensual en COP (mayor a cero) *
