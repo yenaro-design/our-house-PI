@@ -12,6 +12,19 @@ import type { User } from '../models/User';
 
 const EXPENSES_STORAGE_KEY = 'our_house_expenses';
 
+export interface ActualizarGastoInput {
+    gastoId: string;
+    viviendaId: string;
+    concepto: string;
+    monto: number;
+    pagadorId: string;
+    participantes: string[];
+    fecha: string;
+    categoria?: string;
+    administradorId: string;
+    usuarioId: string;
+}
+
 function getLocalExpenses(): Expense[] {
     try {
         const raw = localStorage.getItem(EXPENSES_STORAGE_KEY);
@@ -221,6 +234,99 @@ export async function registrarGasto(
     }
 
     return nuevoGasto;
+}
+
+/**
+ * Actualiza un gasto existente y reconstruye su distribución proporcional.
+ * La identidad del gasto y su fecha de creación se conservan.
+ */
+export async function actualizarGasto(
+    datos: ActualizarGastoInput,
+    gastoActual: Expense,
+    integrantesVivienda: User[]
+): Promise<Expense> {
+    if (datos.usuarioId !== datos.administradorId) {
+        throw new Error('Solo el administrador de la vivienda puede editar gastos.');
+    }
+
+    if (gastoActual.id !== datos.gastoId || gastoActual.viviendaId !== datos.viviendaId) {
+        throw new Error('El gasto seleccionado no pertenece a esta vivienda.');
+    }
+
+    const cleanConcepto = datos.concepto.trim();
+    if (!cleanConcepto) {
+        throw new Error('El concepto del gasto es obligatorio.');
+    }
+
+    const monto = Number(datos.monto);
+    if (!Number.isFinite(monto) || monto <= 0) {
+        throw new Error('El monto del gasto debe ser un número mayor a cero.');
+    }
+
+    const fechaParts = datos.fecha.split('-').map(Number);
+    const fecha = new Date(`${datos.fecha}T00:00:00`);
+    const fechaValida =
+        /^\d{4}-\d{2}-\d{2}$/.test(datos.fecha) &&
+        !Number.isNaN(fecha.getTime()) &&
+        fecha.getFullYear() === fechaParts[0] &&
+        fecha.getMonth() + 1 === fechaParts[1] &&
+        fecha.getDate() === fechaParts[2];
+    if (!fechaValida) {
+        throw new Error('La fecha del gasto no es válida.');
+    }
+
+    const pagador = integrantesVivienda.find((integrante) => integrante.id === datos.pagadorId);
+    if (!pagador) {
+        throw new Error('El pagador debe pertenecer a la vivienda.');
+    }
+
+    const participantesUnicos = [...new Set(datos.participantes)];
+    if (participantesUnicos.length === 0) {
+        throw new Error('Debes seleccionar al menos un participante para la distribución del gasto.');
+    }
+
+    if (participantesUnicos.some((id) => !integrantesVivienda.some((integrante) => integrante.id === id))) {
+        throw new Error('Todos los participantes deben pertenecer a la vivienda.');
+    }
+
+    const participantesUsers = integrantesVivienda.filter((integrante) =>
+        participantesUnicos.includes(integrante.id)
+    );
+    const { cuotas, desgloseCuotas, residuoAjustado } = calcularDistribucionProporcional(
+        monto,
+        datos.pagadorId,
+        participantesUsers
+    );
+
+    const gastoActualizado: Expense = {
+        ...gastoActual,
+        id: datos.gastoId,
+        viviendaId: datos.viviendaId,
+        concepto: cleanConcepto,
+        monto,
+        pagadorId: datos.pagadorId,
+        pagadorNombre: pagador.nombre || 'Integrante',
+        participantes: participantesUnicos,
+        fecha: datos.fecha,
+        categoria: datos.categoria?.trim() || 'Hogar',
+        cuotas,
+        desgloseCuotas,
+        residuoAjustado,
+    };
+
+    const gastoRef = doc(db, 'expenses', gastoActualizado.id);
+    await setDoc(gastoRef, gastoActualizado);
+
+    const local = getLocalExpenses();
+    const indiceGasto = local.findIndex((gasto) => gasto.id === gastoActualizado.id);
+    if (indiceGasto >= 0) {
+        local[indiceGasto] = gastoActualizado;
+    } else {
+        local.unshift(gastoActualizado);
+    }
+    saveLocalExpenses(local);
+
+    return gastoActualizado;
 }
 
 /**
