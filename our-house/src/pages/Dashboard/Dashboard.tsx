@@ -19,6 +19,7 @@ import {
   Trash2,
   DoorOpen,
   Eye,
+  Pencil,
   X,
   Loader2,
   Info,
@@ -36,6 +37,7 @@ import {
 import {
   obtenerGastosPorVivienda,
   registrarGasto,
+  actualizarGasto,
   filtrarGastos,
   calcularSaldosConsolidados,
   calcularDistribucionProporcional,
@@ -78,6 +80,7 @@ function Dashboard() {
   const [modalTareaOpen, setModalTareaOpen] = useState(false);
   const [modalIngresoOpen, setModalIngresoOpen] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Feedback & Copy State
   const [copiedCode, setCopiedCode] = useState(false);
@@ -93,6 +96,7 @@ function Dashboard() {
   const [gastoCategoria, setGastoCategoria] = useState("Mercado");
   const [gastoFecha, setGastoFecha] = useState(() => new Date().toISOString().split("T")[0]);
   const [guardandoGasto, setGuardandoGasto] = useState(false);
+  const [gastoFormError, setGastoFormError] = useState<string | null>(null);
 
   // Task Form State
   const [tareaTitulo, setTareaTitulo] = useState("");
@@ -238,18 +242,20 @@ function Dashboard() {
     setFiltroPagador("todos");
   };
 
-  const handleOpenGastoModal = () => {
+  const handleOpenGastoModal = (expenseToEdit?: Expense) => {
     if (members.length === 0) {
       setActionError("Debes tener una vivienda con integrantes para registrar gastos.");
       return;
     }
-    setGastoConcepto("");
-    setGastoMonto("");
-    setGastoPagadorId(user?.uid || members[0]?.id || "");
-    setGastoParticipantes(members.map((m) => m.id));
-    setGastoCategoria("Mercado");
-    setGastoFecha(new Date().toISOString().split("T")[0]);
+    setEditingExpense(expenseToEdit || null);
+    setGastoConcepto(expenseToEdit?.concepto || "");
+    setGastoMonto(expenseToEdit ? String(expenseToEdit.monto) : "");
+    setGastoPagadorId(expenseToEdit?.pagadorId || user?.uid || members[0]?.id || "");
+    setGastoParticipantes(expenseToEdit?.participantes || members.map((m) => m.id));
+    setGastoCategoria(expenseToEdit?.categoria || "Mercado");
+    setGastoFecha(expenseToEdit?.fecha || new Date().toISOString().split("T")[0]);
     setActionError(null);
+    setGastoFormError(null);
     setModalGastoOpen(true);
   };
 
@@ -263,48 +269,80 @@ function Dashboard() {
     e.preventDefault();
     if (!dwelling || !user) return;
     setActionError(null);
+    setGastoFormError(null);
 
     const monto = Number(gastoMonto);
     if (!gastoConcepto.trim()) {
-      setActionError("El concepto del gasto es obligatorio.");
+      setGastoFormError("El concepto del gasto es obligatorio.");
       return;
     }
     if (isNaN(monto) || monto <= 0) {
-      setActionError("El monto debe ser un número mayor a cero.");
+      setGastoFormError("El monto debe ser un número mayor a cero.");
       return;
     }
     if (!gastoPagadorId) {
-      setActionError("Selecciona el pagador del gasto.");
+      setGastoFormError("Selecciona el pagador del gasto.");
       return;
     }
     if (gastoParticipantes.length === 0) {
-      setActionError("Debes seleccionar al menos un participante.");
+      setGastoFormError("Debes seleccionar al menos un participante.");
       return;
     }
 
     try {
       setGuardandoGasto(true);
       const pagador = members.find((m) => m.id === gastoPagadorId);
-      const nuevo = await registrarGasto(
-        {
-          viviendaId: dwelling.id,
-          concepto: gastoConcepto.trim(),
-          monto,
-          pagadorId: gastoPagadorId,
-          pagadorNombre: pagador?.nombre || "Integrante",
-          participantes: gastoParticipantes,
-          fecha: gastoFecha,
-          categoria: gastoCategoria,
-        },
-        members
-      );
+      const datosGasto = {
+        viviendaId: dwelling.id,
+        concepto: gastoConcepto.trim(),
+        monto,
+        pagadorId: gastoPagadorId,
+        pagadorNombre: pagador?.nombre || "Integrante",
+        participantes: gastoParticipantes,
+        fecha: gastoFecha,
+        categoria: gastoCategoria,
+      };
+      const gastoGuardado = editingExpense
+        ? await actualizarGasto(
+            {
+              ...datosGasto,
+              gastoId: editingExpense.id,
+              administradorId: dwelling.administradorId,
+              usuarioId: user.uid,
+            },
+            editingExpense,
+            members
+          )
+        : await registrarGasto(datosGasto, members);
 
-      setExpenses((prev) => [nuevo, ...prev]);
+      setExpenses((prev) =>
+        editingExpense
+          ? prev.map((gasto) => (gasto.id === gastoGuardado.id ? gastoGuardado : gasto))
+          : [gastoGuardado, ...prev]
+      );
+      const mensaje = editingExpense
+        ? `Gasto "${gastoGuardado.concepto}" actualizado correctamente.`
+        : `Gasto "${gastoGuardado.concepto}" registrado con distribución proporcional exacta.`;
+      setEditingExpense(null);
       setModalGastoOpen(false);
-      setActionSuccess(`Gasto "${nuevo.concepto}" registrado con distribución proporcional exacta.`);
+      setActionSuccess(mensaje);
       setTimeout(() => setActionSuccess(null), 3500);
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Error al registrar el gasto.");
+      const firebaseCode =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code?: unknown }).code)
+          : "";
+      const errorMessage = err instanceof Error ? err.message : "";
+      const isPermissionError =
+        firebaseCode === "permission-denied" || errorMessage.includes("Missing or insufficient permissions");
+
+      setGastoFormError(
+        isPermissionError
+          ? editingExpense
+            ? "Firestore rechazó la actualización por permisos insuficientes. Verifica que las reglas permitan al administrador actualizar este gasto y que la sesión actual corresponda al administrador de la vivienda."
+            : "Firestore rechazó el registro por permisos insuficientes. Verifica que tu usuario pertenezca a la vivienda y que las reglas permitan crear gastos."
+          : errorMessage || (editingExpense ? "No se pudo actualizar el gasto." : "No se pudo registrar el gasto.")
+      );
     } finally {
       setGuardandoGasto(false);
     }
@@ -689,6 +727,7 @@ function Dashboard() {
                 onClick={() => {
                   setDropdownOpen(false);
                   setNuevoIngresoInput(String(userProfile?.ingresoMensual || ""));
+                  setActionError(null);
                   setModalIngresoOpen(true);
                 }}
                 role="menuitem"
@@ -738,7 +777,7 @@ function Dashboard() {
         )}
 
         {/* Global Feedback Banners */}
-        {actionError && (
+        {actionError && !modalGastoOpen && !modalIngresoOpen && !modalTareaOpen && !selectedExpenseForDetail && (
           <div
             role="alert"
             aria-live="assertive"
@@ -868,7 +907,7 @@ function Dashboard() {
               <button
                 type="button"
                 className="dashboard-primary-action"
-                onClick={handleOpenGastoModal}
+                onClick={() => handleOpenGastoModal()}
                 style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
               >
                 <Plus size={16} /> Registrar gasto
@@ -989,6 +1028,7 @@ function Dashboard() {
                 type="button"
                 onClick={() => {
                   setNuevoIngresoInput(String(userProfile?.ingresoMensual || ""));
+                  setActionError(null);
                   setModalIngresoOpen(true);
                 }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--dashboard-green)", fontSize: "11px", fontWeight: 700 }}
@@ -1035,7 +1075,7 @@ function Dashboard() {
                   <p>No se han registrado gastos aún en esta vivienda.</p>
                   <button
                     type="button"
-                    onClick={handleOpenGastoModal}
+                    onClick={() => handleOpenGastoModal()}
                     style={{
                       background: "var(--dashboard-green)",
                       color: "#ffffff",
@@ -1156,7 +1196,7 @@ function Dashboard() {
               <button
                 type="button"
                 className="dashboard-primary-action"
-                onClick={handleOpenGastoModal}
+                onClick={() => handleOpenGastoModal()}
                 style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
               >
                 <Plus size={16} /> Registrar nuevo gasto
@@ -1310,25 +1350,50 @@ function Dashboard() {
                             )}
                           </td>
                           <td style={{ textAlign: "center" }}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedExpenseForDetail(g)}
-                              style={{
-                                background: "#f0f6f3",
-                                border: "1px solid #c8dcd2",
-                                color: "var(--dashboard-green)",
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                fontWeight: 600,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
-                            >
-                              <Eye size={13} /> Desglose
-                            </button>
+                            {dwelling?.administradorId === user?.uid && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenGastoModal(g)}
+                                style={{
+                                  background: "#fffaf0",
+                                  border: "1px solid #f0d9a6",
+                                  color: "#9a6700",
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  marginRight: "6px",
+                                }}
+                                title="Editar gasto"
+                              >
+                                <Pencil size={13} /> Editar
+                              </button>
+                            )}
+                            {dwelling?.administradorId !== user?.uid && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedExpenseForDetail(g)}
+                                style={{
+                                  background: "#f0f6f3",
+                                  border: "1px solid #c8dcd2",
+                                  color: "var(--dashboard-green)",
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                }}
+                              >
+                                <Eye size={13} /> Desglose
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1618,18 +1683,42 @@ function Dashboard() {
             <div className="dashboard-modal-header">
               <h3 className="dashboard-modal-title">
                 <DollarSign size={20} color="var(--dashboard-green)" />
-                Registrar Gasto Compartido
+                {editingExpense ? "Editar Gasto Compartido" : "Registrar Gasto Compartido"}
               </h3>
               <button
                 type="button"
                 className="dashboard-modal-close"
-                onClick={() => setModalGastoOpen(false)}
+                onClick={() => {
+                  setModalGastoOpen(false);
+                  setEditingExpense(null);
+                  setGastoFormError(null);
+                }}
               >
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleGuardarGasto} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {gastoFormError && (
+                <div
+                  role="alert"
+                  style={{
+                    color: "#b91c1c",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    padding: "12px 14px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                  }}
+                >
+                  <AlertCircle size={17} style={{ flexShrink: 0, marginTop: "1px" }} />
+                  <span>{gastoFormError}</span>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: "block", fontSize: "13px", fontWeight: 700, marginBottom: "6px", color: "var(--dashboard-ink)" }}>
                   Concepto o descripción *
@@ -1817,7 +1906,13 @@ function Dashboard() {
                   gap: "8px",
                 }}
               >
-                {guardandoGasto ? <Loader2 size={16} className="animate-spin" /> : "Guardar gasto con cálculo exacto"}
+                {guardandoGasto ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : editingExpense ? (
+                  "Guardar cambios"
+                ) : (
+                  "Guardar gasto con cálculo exacto"
+                )}
               </button>
             </form>
           </div>
@@ -1843,6 +1938,33 @@ function Dashboard() {
                 <X size={18} />
               </button>
             </div>
+
+            {dwelling?.administradorId === user?.uid && (
+              <button
+                type="button"
+                onClick={() => {
+                  handleOpenGastoModal(selectedExpenseForDetail);
+                  setSelectedExpenseForDetail(null);
+                }}
+                style={{
+                  alignSelf: "flex-start",
+                  background: "#fffaf0",
+                  border: "1px solid #f0d9a6",
+                  color: "#9a6700",
+                  padding: "7px 11px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  marginBottom: "16px",
+                }}
+              >
+                <Pencil size={13} /> Editar gasto
+              </button>
+            )}
 
             <div style={{ marginBottom: "20px" }}>
               <h4 style={{ margin: "0 0 6px", fontSize: "20px", color: "var(--dashboard-ink)" }}>
@@ -1926,6 +2048,25 @@ function Dashboard() {
             </p>
 
             <form onSubmit={handleGuardarIngreso} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {actionError && (
+                <div
+                  role="alert"
+                  style={{
+                    color: "#b91c1c",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    padding: "12px 14px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                    <AlertCircle size={17} style={{ flexShrink: 0, marginTop: "1px" }} />
+                    <span>{actionError}</span>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label style={{ display: "block", fontSize: "13px", fontWeight: 700, marginBottom: "6px" }}>
                   Monto mensual en COP (mayor a cero) *

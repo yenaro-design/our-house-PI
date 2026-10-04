@@ -36,4 +36,9 @@ if (typeof window !== 'undefined') {
 const auth = getAuth(app)
 const db = getFirestore(app)
 
-export { app, analytics, auth, db, hasFirebaseConfig }
+const isFirebasePersistenceAvailable = (userId?: string) =>
+    hasFirebaseConfig &&
+    auth.currentUser !== null &&
+    (!userId || auth.currentUser.uid === userId)
+
+export { app, analytics, auth, db, hasFirebaseConfig, isFirebasePersistenceAvailable }

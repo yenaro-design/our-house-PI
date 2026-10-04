@@ -10,7 +10,7 @@ import {
     updateDoc,
     where,
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, isFirebasePersistenceAvailable } from '../firebase/config';
 import type { Dwelling } from '../models/Dwelling';
 import type { User } from '../models/User';
 import { getUsersByIds, setUserDwelling } from './userService';
@@ -76,16 +76,7 @@ export async function crearVivienda(datos: DatosVivienda, userId: string): Promi
         creadoEn: new Date().toISOString(),
     };
 
-    // 1. Guardar localmente
-    const local = getLocalDwellings();
-    local.push(nuevaVivienda);
-    saveLocalDwellings(local);
-
-    // 2. Asociar vivienda al creador
-    await setUserDwelling(userId, viviendaId);
-
-    // 3. Guardar en Firestore
-    try {
+    if (isFirebasePersistenceAvailable(userId)) {
         const viviendaRef = doc(db, 'dwellings', viviendaId);
         await setDoc(viviendaRef, {
             nombre: cleanNombre,
@@ -95,9 +86,13 @@ export async function crearVivienda(datos: DatosVivienda, userId: string): Promi
             integrantes: [userId],
             creadoEn: new Date().toISOString(),
         });
-    } catch (err) {
-        console.warn('Aviso: guardando vivienda en almacenamiento local (Firestore no disponible):', err);
     }
+
+    const local = getLocalDwellings();
+    local.push(nuevaVivienda);
+    saveLocalDwellings(local);
+
+    await setUserDwelling(userId, viviendaId);
 
     return nuevaVivienda;
 }
@@ -179,7 +174,14 @@ export async function unirseAVivienda(viviendaId: string, userId: string): Promi
         throw new Error('Parámetros requeridos inválidos para vincularse a la vivienda.');
     }
 
-    // 1. Actualizar localmente
+    if (isFirebasePersistenceAvailable(userId)) {
+        const viviendaRef = doc(db, 'dwellings', viviendaId);
+        await updateDoc(viviendaRef, {
+            integrantes: arrayUnion(userId),
+        });
+    }
+
+    // Actualizar localmente solo después de confirmar la escritura remota.
     const local = getLocalDwellings();
     const index = local.findIndex((d) => d.id === viviendaId);
     if (index !== -1) {
@@ -191,16 +193,6 @@ export async function unirseAVivienda(viviendaId: string, userId: string): Promi
 
     // 2. Asociar vivienda al perfil del usuario
     await setUserDwelling(userId, viviendaId);
-
-    // 3. Actualizar Firestore
-    try {
-        const viviendaRef = doc(db, 'dwellings', viviendaId);
-        await updateDoc(viviendaRef, {
-            integrantes: arrayUnion(userId),
-        });
-    } catch (err) {
-        console.warn('Aviso: vinculación de vivienda actualizada en almacenamiento local:', err);
-    }
 }
 
 /**

@@ -7,7 +7,7 @@ import {
     updateDoc,
     where,
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db, isFirebasePersistenceAvailable } from '../firebase/config';
 import type { Task } from '../models/Task';
 
 const TASKS_STORAGE_KEY = 'our_house_tasks';
@@ -112,16 +112,14 @@ export async function crearTarea(datos: {
         createdAt: new Date().toISOString(),
     };
 
+    if (isFirebasePersistenceAvailable()) {
+        const docRef = doc(db, 'tasks', taskId);
+        await setDoc(docRef, nuevaTarea);
+    }
+
     const local = getLocalTasks();
     local.push(nuevaTarea);
     saveLocalTasks(local);
-
-    try {
-        const docRef = doc(db, 'tasks', taskId);
-        await setDoc(docRef, nuevaTarea);
-    } catch (err) {
-        console.warn('Aviso al guardar tarea en Firestore:', err);
-    }
 
     return nuevaTarea;
 }
