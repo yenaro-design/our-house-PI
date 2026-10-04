@@ -174,7 +174,14 @@ export async function unirseAVivienda(viviendaId: string, userId: string): Promi
         throw new Error('Parámetros requeridos inválidos para vincularse a la vivienda.');
     }
 
-    // 1. Actualizar localmente
+    if (isFirebasePersistenceAvailable(userId)) {
+        const viviendaRef = doc(db, 'dwellings', viviendaId);
+        await updateDoc(viviendaRef, {
+            integrantes: arrayUnion(userId),
+        });
+    }
+
+    // Actualizar localmente solo después de confirmar la escritura remota.
     const local = getLocalDwellings();
     const index = local.findIndex((d) => d.id === viviendaId);
     if (index !== -1) {
@@ -186,16 +193,6 @@ export async function unirseAVivienda(viviendaId: string, userId: string): Promi
 
     // 2. Asociar vivienda al perfil del usuario
     await setUserDwelling(userId, viviendaId);
-
-    // 3. Actualizar Firestore
-    try {
-        const viviendaRef = doc(db, 'dwellings', viviendaId);
-        await updateDoc(viviendaRef, {
-            integrantes: arrayUnion(userId),
-        });
-    } catch (err) {
-        console.warn('Aviso: vinculación de vivienda actualizada en almacenamiento local:', err);
-    }
 }
 
 /**

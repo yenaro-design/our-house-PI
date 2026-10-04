@@ -95,6 +95,7 @@ function Dashboard() {
   const [gastoCategoria, setGastoCategoria] = useState("Mercado");
   const [gastoFecha, setGastoFecha] = useState(() => new Date().toISOString().split("T")[0]);
   const [guardandoGasto, setGuardandoGasto] = useState(false);
+  const [gastoFormError, setGastoFormError] = useState<string | null>(null);
 
   // Task Form State
   const [tareaTitulo, setTareaTitulo] = useState("");
@@ -253,6 +254,7 @@ function Dashboard() {
     setGastoCategoria(expenseToEdit?.categoria || "Mercado");
     setGastoFecha(expenseToEdit?.fecha || new Date().toISOString().split("T")[0]);
     setActionError(null);
+    setGastoFormError(null);
     setModalGastoOpen(true);
   };
 
@@ -266,22 +268,23 @@ function Dashboard() {
     e.preventDefault();
     if (!dwelling || !user) return;
     setActionError(null);
+    setGastoFormError(null);
 
     const monto = Number(gastoMonto);
     if (!gastoConcepto.trim()) {
-      setActionError("El concepto del gasto es obligatorio.");
+      setGastoFormError("El concepto del gasto es obligatorio.");
       return;
     }
     if (isNaN(monto) || monto <= 0) {
-      setActionError("El monto debe ser un número mayor a cero.");
+      setGastoFormError("El monto debe ser un número mayor a cero.");
       return;
     }
     if (!gastoPagadorId) {
-      setActionError("Selecciona el pagador del gasto.");
+      setGastoFormError("Selecciona el pagador del gasto.");
       return;
     }
     if (gastoParticipantes.length === 0) {
-      setActionError("Debes seleccionar al menos un participante.");
+      setGastoFormError("Debes seleccionar al menos un participante.");
       return;
     }
 
@@ -332,10 +335,12 @@ function Dashboard() {
       const isPermissionError =
         firebaseCode === "permission-denied" || errorMessage.includes("Missing or insufficient permissions");
 
-      setActionError(
-        editingExpense && isPermissionError
-          ? "Firestore rechazó la actualización por permisos insuficientes. Verifica que las reglas permitan al administrador actualizar este gasto y que la sesión actual corresponda al administrador de la vivienda."
-          : errorMessage || (editingExpense ? "No se pudo actualizar el gasto." : "Error al registrar el gasto.")
+      setGastoFormError(
+        isPermissionError
+          ? editingExpense
+            ? "Firestore rechazó la actualización por permisos insuficientes. Verifica que las reglas permitan al administrador actualizar este gasto y que la sesión actual corresponda al administrador de la vivienda."
+            : "Firestore rechazó el registro por permisos insuficientes. Verifica que tu usuario pertenezca a la vivienda y que las reglas permitan crear gastos."
+          : errorMessage || (editingExpense ? "No se pudo actualizar el gasto." : "No se pudo registrar el gasto.")
       );
     } finally {
       setGuardandoGasto(false);
@@ -1363,25 +1368,27 @@ function Dashboard() {
                                 <Pencil size={13} /> Editar
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => setSelectedExpenseForDetail(g)}
-                              style={{
-                                background: "#f0f6f3",
-                                border: "1px solid #c8dcd2",
-                                color: "var(--dashboard-green)",
-                                padding: "6px 10px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                                fontWeight: 600,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
-                            >
-                              <Eye size={13} /> Desglose
-                            </button>
+                            {dwelling?.administradorId !== user?.uid && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedExpenseForDetail(g)}
+                                style={{
+                                  background: "#f0f6f3",
+                                  border: "1px solid #c8dcd2",
+                                  color: "var(--dashboard-green)",
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                }}
+                              >
+                                <Eye size={13} /> Desglose
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1669,6 +1676,7 @@ function Dashboard() {
                 onClick={() => {
                   setModalGastoOpen(false);
                   setEditingExpense(null);
+                  setGastoFormError(null);
                 }}
               >
                 <X size={18} />
@@ -1676,7 +1684,7 @@ function Dashboard() {
             </div>
 
             <form onSubmit={handleGuardarGasto} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {actionError && (
+              {gastoFormError && (
                 <div
                   role="alert"
                   style={{
@@ -1692,7 +1700,7 @@ function Dashboard() {
                   }}
                 >
                   <AlertCircle size={17} style={{ flexShrink: 0, marginTop: "1px" }} />
-                  <span>{actionError}</span>
+                  <span>{gastoFormError}</span>
                 </div>
               )}
 
