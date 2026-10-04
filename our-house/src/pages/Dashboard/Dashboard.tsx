@@ -38,6 +38,7 @@ import {
   obtenerGastosPorVivienda,
   registrarGasto,
   actualizarGasto,
+  eliminarGasto,
   filtrarGastos,
   calcularSaldosConsolidados,
   calcularDistribucionProporcional,
@@ -96,6 +97,7 @@ function Dashboard() {
   const [gastoCategoria, setGastoCategoria] = useState("Mercado");
   const [gastoFecha, setGastoFecha] = useState(() => new Date().toISOString().split("T")[0]);
   const [guardandoGasto, setGuardandoGasto] = useState(false);
+  const [eliminandoGastoId, setEliminandoGastoId] = useState<string | null>(null);
   const [gastoFormError, setGastoFormError] = useState<string | null>(null);
 
   // Task Form State
@@ -345,6 +347,44 @@ function Dashboard() {
       );
     } finally {
       setGuardandoGasto(false);
+    }
+  };
+
+  const handleEliminarGasto = async (gasto: Expense) => {
+    if (!dwelling || !user || dwelling.administradorId !== user.uid) return;
+
+    const confirmado = window.confirm(
+      `¿Confirmas eliminar el gasto "${gasto.concepto}"? Esta acción actualizará los saldos de la vivienda.`
+    );
+    if (!confirmado) return;
+
+    try {
+      setEliminandoGastoId(gasto.id);
+      setActionError(null);
+      await eliminarGasto({
+        gastoId: gasto.id,
+        viviendaId: dwelling.id,
+        administradorId: dwelling.administradorId,
+        usuarioId: user.uid,
+      });
+      setExpenses((prev) => prev.filter((item) => item.id !== gasto.id));
+      setSelectedExpenseForDetail(null);
+      setActionSuccess(`Gasto "${gasto.concepto}" eliminado. Los saldos fueron recalculados.`);
+      setTimeout(() => setActionSuccess(null), 3500);
+    } catch (err: unknown) {
+      const firebaseCode =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code?: unknown }).code)
+          : "";
+      setActionError(
+        firebaseCode === "permission-denied"
+          ? "Firestore rechazó la eliminación por permisos insuficientes. Verifica que las reglas permitan al administrador eliminar este gasto."
+          : err instanceof Error
+            ? err.message
+            : "No se pudo eliminar el gasto."
+      );
+    } finally {
+      setEliminandoGastoId(null);
     }
   };
 
@@ -1373,6 +1413,29 @@ function Dashboard() {
                                 <Pencil size={13} /> Editar
                               </button>
                             )}
+                            {dwelling?.administradorId === user?.uid && (
+                              <button
+                                type="button"
+                                onClick={() => handleEliminarGasto(g)}
+                                disabled={eliminandoGastoId === g.id}
+                                style={{
+                                  background: "#fff5f5",
+                                  border: "1px solid #feb2b2",
+                                  color: "#b91c1c",
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  cursor: eliminandoGastoId === g.id ? "wait" : "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                }}
+                                title="Eliminar gasto"
+                              >
+                                <Trash2 size={13} /> {eliminandoGastoId === g.id ? "Eliminando..." : "Eliminar"}
+                              </button>
+                            )}
                             {dwelling?.administradorId !== user?.uid && (
                               <button
                                 type="button"
@@ -1940,30 +2003,52 @@ function Dashboard() {
             </div>
 
             {dwelling?.administradorId === user?.uid && (
-              <button
-                type="button"
-                onClick={() => {
-                  handleOpenGastoModal(selectedExpenseForDetail);
-                  setSelectedExpenseForDetail(null);
-                }}
-                style={{
-                  alignSelf: "flex-start",
-                  background: "#fffaf0",
-                  border: "1px solid #f0d9a6",
-                  color: "#9a6700",
-                  padding: "7px 11px",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  marginBottom: "16px",
-                }}
-              >
-                <Pencil size={13} /> Editar gasto
-              </button>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenGastoModal(selectedExpenseForDetail);
+                    setSelectedExpenseForDetail(null);
+                  }}
+                  style={{
+                    alignSelf: "flex-start",
+                    background: "#fffaf0",
+                    border: "1px solid #f0d9a6",
+                    color: "#9a6700",
+                    padding: "7px 11px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                  }}
+                >
+                  <Pencil size={13} /> Editar gasto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleEliminarGasto(selectedExpenseForDetail)}
+                  disabled={eliminandoGastoId === selectedExpenseForDetail.id}
+                  style={{
+                    alignSelf: "flex-start",
+                    background: "#fff5f5",
+                    border: "1px solid #feb2b2",
+                    color: "#b91c1c",
+                    padding: "7px 11px",
+                    borderRadius: "6px",
+                    cursor: eliminandoGastoId === selectedExpenseForDetail.id ? "wait" : "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                  }}
+                >
+                  <Trash2 size={13} /> {eliminandoGastoId === selectedExpenseForDetail.id ? "Eliminando..." : "Eliminar gasto"}
+                </button>
+              </div>
             )}
 
             <div style={{ marginBottom: "20px" }}>
