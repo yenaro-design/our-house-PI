@@ -68,6 +68,7 @@ import type { Expense } from "../../models/Expense";
 import type { Task } from "../../models/Task";
 import type { Debt, DebtPayment } from "../../models/Debt";
 import "./Dashboard.css";
+import SaldoConsolidadoCard from "../../components/SaldoConsolidadoCard";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -1217,6 +1218,11 @@ function Dashboard() {
             <p>
               {userSaldo > 0 ? "A tu favor (te deben)" : userSaldo < 0 ? "En contra (debes pagar)" : "Al día con la vivienda"}
             </p>
+          </article>
+
+          {/* HU15: Saldo consolidado individual */}
+          <article className="dashboard-stat">
+            <SaldoConsolidadoCard expenses={expenses} payments={payments} userId={user?.uid ?? ""} />
           </article>
 
           {/* Card: Gastos Totales */}
