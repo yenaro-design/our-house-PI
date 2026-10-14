@@ -1,0 +1,62 @@
+﻿import { useMemo } from 'react';
+import type { Expense } from '../models/Expense';
+import { calcularResumenSaldo, type ResumenSaldo } from '../services/saldoService';
+
+interface Props {
+    expenses: Expense[]; // los mismos gastos que ya carga el Dashboard
+    userId: string;
+}
+
+const formatCOP = (valor: number) =>
+    new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        maximumFractionDigits: 0,
+    }).format(valor);
+
+const MENSAJE_ESTADO: Record<ResumenSaldo['estado'], string> = {
+    deuda: 'Tienes deudas pendientes en la vivienda.',
+    favor: 'Tienes un valor a favor en la vivienda.',
+    'al-dia': 'Estás al día con la vivienda.',
+};
+
+/**
+ * HU15 — Saldo consolidado individual.
+ * No consulta datos por su cuenta: recibe los gastos del Dashboard, así se
+ * actualiza solo cuando se registra, edita o elimina un gasto (criterio 5)
+ * y nunca muestra una cifra distinta a la del resto de la pantalla.
+ */
+export default function SaldoConsolidadoCard({ expenses, userId }: Props) {
+    const resumen = useMemo(() => calcularResumenSaldo(expenses, userId), [expenses, userId]);
+
+    const color =
+        resumen.estado === 'deuda' ? '#b91c1c' : resumen.estado === 'favor' ? '#15803d' : 'inherit';
+
+    return (
+        <section aria-labelledby="saldo-titulo" className="saldo-consolidado-card">
+            <h3 id="saldo-titulo">Mi saldo consolidado</h3>
+
+            <p style={{ fontSize: '1.75rem', fontWeight: 700, color, margin: '0.25rem 0' }}>
+                {resumen.saldo < 0 ? '-' : ''}
+                {formatCOP(Math.abs(resumen.saldo))}
+            </p>
+            <p>{MENSAJE_ESTADO[resumen.estado]}</p>
+
+            <dl>
+                <dt>Deudas pendientes</dt>
+                <dd>{formatCOP(resumen.deudaPendiente)}</dd>
+
+                <dt>Valores a favor</dt>
+                <dd>{formatCOP(resumen.valorAFavor)}</dd>
+
+                <dt>Total que pagaste</dt>
+                <dd>{formatCOP(resumen.totalPagado)}</dd>
+
+                <dt>Total de tus cuotas</dt>
+                <dd>{formatCOP(resumen.totalCuotas)}</dd>
+            </dl>
+
+            <small>Calculado con {resumen.cantidadGastos} gasto(s) registrados.</small>
+        </section>
+    );
+}
