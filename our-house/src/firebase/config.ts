@@ -3,21 +3,22 @@ import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 
-const hasFirebaseConfig = Boolean(
-    import.meta.env.VITE_FIREBASE_API_KEY &&
-    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN &&
-    import.meta.env.VITE_FIREBASE_PROJECT_ID &&
-    import.meta.env.VITE_FIREBASE_APP_ID
-)
-
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyMockKeyForDevEnvironment12345678',
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'our-house-app.firebaseapp.com',
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'our-house-app',
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'our-house-app.appspot.com',
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '123456789012',
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:123456789012:web:abcdef1234567890',
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyB1TjsLPi2HvhXAljzh6i8JIZMPQPt4s-8',
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'our-house-pi.firebaseapp.com',
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'our-house-pi',
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'our-house-pi.firebasestorage.app',
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '1072893888582',
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:1072893888582:web:9e5304eb06757e56166247',
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-WHNZTQP39L',
 }
+
+const hasFirebaseConfig = Boolean(
+    firebaseConfig.apiKey &&
+    firebaseConfig.authDomain &&
+    firebaseConfig.projectId &&
+    firebaseConfig.appId
+)
 
 const app = initializeApp(firebaseConfig)
 let analytics: ReturnType<typeof getAnalytics> | null = null
