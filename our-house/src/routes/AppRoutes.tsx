@@ -6,6 +6,7 @@ import Profile from "../pages/Profile/Profile";
 import CrearViviendaForm from "../components/CrearViviendaForm";
 import UnirseViviendaForm from "../components/UnirseViviendaForm";
 import IngresoMensualForm from "../components/IngresoMensualForm";
+import CrearTareaForm from "../components/CrearTareaForm";
 
 function AppRoutes() {
   return (
@@ -18,6 +19,7 @@ function AppRoutes() {
       <Route path="/crear-vivienda" element={<CrearViviendaForm />} />
       <Route path="/unirse-vivienda" element={<UnirseViviendaForm />} />
       <Route path="/ingreso-mensual" element={<IngresoMensualForm />} />
+      <Route path="/crear-tarea" element={<CrearTareaForm />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );

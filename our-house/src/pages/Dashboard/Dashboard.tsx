@@ -48,6 +48,7 @@ import {
   toggleCompletarTarea,
 } from "../../services/taskService";
 import { guardarIngresoMensual } from "../../services/ingresoService";
+import CrearTareaForm from "../../components/CrearTareaForm";
 import type { Dwelling } from "../../models/Dwelling";
 import type { User } from "../../models/User";
 import type { Expense } from "../../models/Expense";
@@ -98,12 +99,6 @@ function Dashboard() {
   const [guardandoGasto, setGuardandoGasto] = useState(false);
   const [gastoFormError, setGastoFormError] = useState<string | null>(null);
 
-  // Task Form State
-  const [tareaTitulo, setTareaTitulo] = useState("");
-  const [tareaDescripcion, setTareaDescripcion] = useState("");
-  const [tareaResponsableId, setTareaResponsableId] = useState("");
-  const [tareaFecha, setTareaFecha] = useState(() => new Date().toISOString().split("T")[0]);
-  const [guardandoTarea, setGuardandoTarea] = useState(false);
 
   // Quick Income Form State (HU04)
   const [nuevoIngresoInput, setNuevoIngresoInput] = useState("");
@@ -169,7 +164,6 @@ function Dashboard() {
           if (user) {
             setGastoPagadorId(user.uid);
             setGastoParticipantes(integrantes.map((m) => m.id));
-            setTareaResponsableId(user.uid);
           }
         }
       } catch (err) {
@@ -348,44 +342,6 @@ function Dashboard() {
     }
   };
 
-  const handleGuardarTarea = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!dwelling) return;
-    setActionError(null);
-
-    if (!tareaTitulo.trim()) {
-      setActionError("El título de la tarea es obligatorio.");
-      return;
-    }
-    if (!tareaResponsableId) {
-      setActionError("Selecciona un responsable para la tarea.");
-      return;
-    }
-
-    try {
-      setGuardandoTarea(true);
-      const resp = members.find((m) => m.id === tareaResponsableId);
-      const nueva = await crearTarea({
-        viviendaId: dwelling.id,
-        titulo: tareaTitulo.trim(),
-        descripcion: tareaDescripcion.trim(),
-        responsableId: tareaResponsableId,
-        responsableNombre: resp?.nombre || "Integrante",
-        fechaVencimiento: tareaFecha,
-      });
-
-      setTasks((prev) => [...prev, nueva]);
-      setModalTareaOpen(false);
-      setTareaTitulo("");
-      setTareaDescripcion("");
-      setActionSuccess("Tarea asignada correctamente.");
-      setTimeout(() => setActionSuccess(null), 3000);
-    } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : "Error al guardar la tarea.");
-    } finally {
-      setGuardandoTarea(false);
-    }
-  };
 
   const handleToggleTask = async (taskId: string, current: boolean) => {
     try {
@@ -751,6 +707,15 @@ function Dashboard() {
                 id="link-join-dwelling"
               >
                 <Key size={14} /> Unirme con código
+              </Link>
+              <Link
+                to="/crear-tarea"
+                className="dashboard-dropdown-item"
+                onClick={() => setDropdownOpen(false)}
+                role="menuitem"
+                id="link-create-task"
+              >
+                <CheckSquare size={14} /> Crear tarea doméstica
               </Link>
               <hr style={{ margin: "4px 0", border: 0, borderTop: "1px solid var(--dashboard-line)" }} />
               <button
@@ -1572,7 +1537,7 @@ function Dashboard() {
         {/* TAB 4: TAREAS DOMÉSTICAS */}
         {activeTab === "tareas" && (
           <section className="dashboard-tab-panel">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
               <div>
                 <h2 style={{ fontSize: "22px", margin: "0 0 4px", color: "var(--dashboard-ink)" }}>
                   Organización de Tareas del Hogar
@@ -1581,17 +1546,37 @@ function Dashboard() {
                   Coordinación de responsabilidades domésticas asignadas a cada integrante.
                 </p>
               </div>
-              <button
-                type="button"
-                className="dashboard-primary-action"
-                onClick={() => {
-                  setActionError(null);
-                  setModalTareaOpen(true);
-                }}
-                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-              >
-                <Plus size={16} /> Crear nueva tarea
-              </button>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <Link
+                  to="/crear-tarea"
+                  style={{
+                    background: "#ffffff",
+                    color: "var(--dashboard-green)",
+                    border: "1px solid var(--dashboard-green)",
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <Plus size={15} /> Formulario completo
+                </Link>
+                <button
+                  type="button"
+                  className="dashboard-primary-action"
+                  onClick={() => {
+                    setActionError(null);
+                    setModalTareaOpen(true);
+                  }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                >
+                  <Plus size={16} /> Crear nueva tarea
+                </button>
+              </div>
             </div>
 
             {tasks.length === 0 ? (
@@ -1606,22 +1591,39 @@ function Dashboard() {
                 }}
               >
                 <p style={{ margin: "0 0 12px", fontSize: "16px" }}>No hay tareas registradas en esta vivienda.</p>
-                <button
-                  type="button"
-                  onClick={() => setModalTareaOpen(true)}
-                  style={{
-                    background: "var(--dashboard-green)",
-                    color: "#ffffff",
-                    border: "none",
-                    padding: "8px 16px",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                  }}
-                >
-                  + Asignar primera tarea
-                </button>
+                <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => setModalTareaOpen(true)}
+                    style={{
+                      background: "var(--dashboard-green)",
+                      color: "#ffffff",
+                      border: "none",
+                      padding: "8px 16px",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    + Asignar primera tarea
+                  </button>
+                  <Link
+                    to="/crear-tarea"
+                    style={{
+                      background: "#ffffff",
+                      color: "var(--dashboard-green)",
+                      border: "1px solid var(--dashboard-green)",
+                      padding: "8px 16px",
+                      borderRadius: "6px",
+                      textDecoration: "none",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Ir a formulario de tarea
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="dashboard-table-container">
@@ -1629,10 +1631,10 @@ function Dashboard() {
                   <thead>
                     <tr>
                       <th style={{ width: "40px" }}>Estado</th>
-                      <th>Tarea</th>
-                      <th>Descripción</th>
-                      <th>Responsable</th>
-                      <th>Fecha Vencimiento</th>
+                      <th>Título de la Tarea</th>
+                      <th>Descripción Detallada</th>
+                      <th>Responsable Asignado</th>
+                      <th>Fecha Programada</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1657,13 +1659,21 @@ function Dashboard() {
                             {t.titulo}
                           </strong>
                         </td>
-                        <td style={{ color: "var(--dashboard-muted)" }}>{t.descripcion || "Sin descripción"}</td>
+                        <td style={{ color: "var(--dashboard-muted)", maxWidth: "260px" }}>
+                          {t.descripcion ? (
+                            <span>{t.descripcion}</span>
+                          ) : (
+                            <span style={{ fontStyle: "italic", opacity: 0.6 }}>Sin descripción</span>
+                          )}
+                        </td>
                         <td>
                           <span className="dashboard-badge dashboard-badge-member">
                             {t.responsableNombre || "Integrante"}
                           </span>
                         </td>
-                        <td>{t.fechaVencimiento}</td>
+                        <td>
+                          <span style={{ fontWeight: 600 }}>{t.fechaVencimiento}</span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -2109,11 +2119,11 @@ function Dashboard() {
       {/* ========================================================================= */}
       {modalTareaOpen && (
         <div className="dashboard-modal-backdrop" onClick={() => setModalTareaOpen(false)}>
-          <div className="dashboard-modal-card" style={{ maxWidth: "480px" }} onClick={(e) => e.stopPropagation()}>
+          <div className="dashboard-modal-card" style={{ maxWidth: "520px" }} onClick={(e) => e.stopPropagation()}>
             <div className="dashboard-modal-header">
               <h3 className="dashboard-modal-title">
                 <CheckSquare size={20} color="var(--dashboard-green)" />
-                Asignar Tarea del Hogar
+                Crear y asignar tarea doméstica
               </h3>
               <button
                 type="button"
@@ -2124,84 +2134,18 @@ function Dashboard() {
               </button>
             </div>
 
-            <form onSubmit={handleGuardarTarea} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 700, marginBottom: "6px" }}>
-                  Título de la tarea *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: Limpiar estufa y horno, Lavar baños"
-                  value={tareaTitulo}
-                  onChange={(e) => setTareaTitulo(e.target.value)}
-                  required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #dce8e2", boxSizing: "border-box" }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 700, marginBottom: "6px" }}>
-                  Descripción (opcional)
-                </label>
-                <textarea
-                  placeholder="Instrucciones adicionales para la tarea..."
-                  value={tareaDescripcion}
-                  onChange={(e) => setTareaDescripcion(e.target.value)}
-                  rows={3}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #dce8e2", boxSizing: "border-box" }}
-                />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "13px", fontWeight: 700, marginBottom: "6px" }}>
-                    Integrante Responsable *
-                  </label>
-                  <select
-                    value={tareaResponsableId}
-                    onChange={(e) => setTareaResponsableId(e.target.value)}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #dce8e2", boxSizing: "border-box" }}
-                  >
-                    {members.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: "13px", fontWeight: 700, marginBottom: "6px" }}>
-                    Fecha de vencimiento *
-                  </label>
-                  <input
-                    type="date"
-                    value={tareaFecha}
-                    onChange={(e) => setTareaFecha(e.target.value)}
-                    required
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #dce8e2", boxSizing: "border-box" }}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={guardandoTarea}
-                style={{
-                  background: "var(--dashboard-green)",
-                  color: "#ffffff",
-                  border: "none",
-                  padding: "11px",
-                  borderRadius: "8px",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  marginTop: "8px",
-                }}
-              >
-                {guardandoTarea ? "Asignando..." : "Asignar tarea"}
-              </button>
-            </form>
+            <CrearTareaForm
+              isModal
+              onCancel={() => setModalTareaOpen(false)}
+              onTaskCreated={async () => {
+                if (dwelling) {
+                  const refreshed = await obtenerTareasPorVivienda(dwelling.id);
+                  setTasks(refreshed);
+                }
+                setActionSuccess("Tarea doméstica creada y asignada exitosamente.");
+                setTimeout(() => setActionSuccess(null), 3500);
+              }}
+            />
           </div>
         </div>
       )}

@@ -90,13 +90,22 @@ export async function crearTarea(datos: {
     responsableNombre?: string;
     fechaVencimiento: string;
 }): Promise<Task> {
-    const cleanTitulo = datos.titulo.trim();
+    if (!datos.viviendaId) {
+        throw new Error('Debes pertenecer a una vivienda para crear y asignar tareas.');
+    }
+
+    const cleanTitulo = datos.titulo?.trim();
     if (!cleanTitulo) {
         throw new Error('El título de la tarea es obligatorio.');
     }
 
-    if (!datos.responsableId) {
-        throw new Error('Debes asignar un integrante responsable para la tarea.');
+    const cleanFecha = datos.fechaVencimiento?.trim();
+    if (!cleanFecha) {
+        throw new Error('Debes establecer una fecha límite o programada para la tarea.');
+    }
+
+    if (!datos.responsableId?.trim()) {
+        throw new Error('Debes asignar la tarea a un integrante específico de la vivienda.');
     }
 
     const taskId = 'tarea-' + Date.now();
@@ -105,9 +114,9 @@ export async function crearTarea(datos: {
         viviendaId: datos.viviendaId,
         titulo: cleanTitulo,
         descripcion: datos.descripcion?.trim() || '',
-        responsableId: datos.responsableId,
+        responsableId: datos.responsableId.trim(),
         responsableNombre: datos.responsableNombre || 'Integrante',
-        fechaVencimiento: datos.fechaVencimiento || new Date().toISOString().split('T')[0],
+        fechaVencimiento: cleanFecha,
         completada: false,
         createdAt: new Date().toISOString(),
     };
