@@ -48,7 +48,8 @@ import {
 import {
   obtenerTareasPorVivienda,
   crearTarea,
-  toggleCompletarTarea,
+  completarTarea,
+  filtrarTareas,
 } from "../../services/taskService";
 import {
   sincronizarDeudasDesdeGastos,
@@ -57,6 +58,7 @@ import {
 import { guardarIngresoMensual } from "../../services/ingresoService";
 import CrearTareaForm from "../../components/CrearTareaForm";
 import RegistrarPagoModal from "../../components/RegistrarPagoModal";
+import ConfirmarCompletarTareaModal from "../../components/ConfirmarCompletarTareaModal";
 import type { Dwelling } from "../../models/Dwelling";
 import type { User } from "../../models/User";
 import type { Expense } from "../../models/Expense";
@@ -86,6 +88,11 @@ function Dashboard() {
   const [filtroParticipanteDeuda, setFiltroParticipanteDeuda] = useState<"todas" | "mis_deudas" | "mis_acreencias">("todas");
   const [modalPagoOpen, setModalPagoOpen] = useState(false);
   const [selectedDebtForPayment, setSelectedDebtForPayment] = useState<Debt | null>(null);
+
+  const [filtroEstadoTarea, setFiltroEstadoTarea] = useState<"pendientes" | "historial">("pendientes");
+  const [filtroAsignacionTarea, setFiltroAsignacionTarea] = useState<"mis_tareas" | "todas">("mis_tareas");
+  const [filtroResponsableTarea, setFiltroResponsableTarea] = useState<string>("todos");
+  const [tareaACompletar, setTareaACompletar] = useState<Task | null>(null);
 
   // Filters State (HU12)
   const [busqueda, setBusqueda] = useState("");
@@ -276,6 +283,32 @@ function Dashboard() {
       .filter((d) => d.acreedorId === user.uid && d.estado !== "liquidada")
       .reduce((sum, d) => sum + d.saldoPendiente, 0);
   }, [debts, user]);
+
+  const tareasFiltradas = useMemo(() => {
+    return filtrarTareas(tasks, {
+      estado: filtroEstadoTarea === "pendientes" ? "pendientes" : "completadas",
+      soloAsignadasAUsuarioId: filtroAsignacionTarea === "mis_tareas" && user ? user.uid : undefined,
+      responsableId: filtroResponsableTarea !== "todos" ? filtroResponsableTarea : undefined,
+    });
+  }, [tasks, filtroEstadoTarea, filtroAsignacionTarea, filtroResponsableTarea, user]);
+
+  const misTareasPendientesCount = useMemo(() => {
+    if (!user) return 0;
+    return tasks.filter((t) => !t.completada && t.responsableId === user.uid).length;
+  }, [tasks, user]);
+
+  const totalTareasPendientesCount = useMemo(() => {
+    return tasks.filter((t) => !t.completada).length;
+  }, [tasks]);
+
+  const misTareasRealizadasCount = useMemo(() => {
+    if (!user) return 0;
+    return tasks.filter((t) => t.completada && t.responsableId === user.uid).length;
+  }, [tasks, user]);
+
+  const totalTareasRealizadasCount = useMemo(() => {
+    return tasks.filter((t) => t.completada).length;
+  }, [tasks]);
 
   // Helper to open payment modal (Criterio 1)
   const handleOpenPagoModal = (debt?: Debt) => {
@@ -474,14 +507,56 @@ function Dashboard() {
     }
   };
 
-  const handleToggleTask = async (taskId: string, current: boolean) => {
-    try {
-      await toggleCompletarTarea(taskId, !current);
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, completada: !current } : t))
+  const handleSolicitarCompletarTarea = (task: Task) => {
+    if (user && task.responsableId !== user.uid) {
+      setActionError(
+        `Solo el integrante asignado (${task.responsableNombre || "responsable"}) puede marcar esta tarea como completada.`
       );
-    } catch (e) {
-      console.warn("Error al actualizar tarea:", e);
+      setTimeout(() => setActionError(null), 4000);
+      return;
+    }
+    setActionError(null);
+    setTareaACompletar(task);
+  };
+
+  const handleConfirmarCompletarTarea = async (task: Task) => {
+    try {
+      const actualizada = await completarTarea(task.id);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, completada: true, estado: 'realizada', fechaCompletada: actualizada.fechaCompletada }
+            : t
+        )
+      );
+      setTareaACompletar(null);
+      setActionSuccess(`Tarea "${task.titulo}" completada y guardada en el historial.`);
+      setTimeout(() => setActionSuccess(null), 3500);
+    } catch (e: unknown) {
+      const firebaseCode =
+        typeof e === "object" && e !== null && "code" in e
+          ? String((e as { code?: unknown }).code)
+          : "";
+      const errorMessage = e instanceof Error ? e.message : "";
+      const isPermissionError =
+        firebaseCode === "permission-denied" || errorMessage.includes("insufficient permissions");
+
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, completada: true, estado: 'realizada', fechaCompletada: new Date().toISOString().split("T")[0] }
+            : t
+        )
+      );
+      setTareaACompletar(null);
+
+      if (isPermissionError) {
+        setActionError(
+          "Firestore rechazó la escritura por permisos insuficientes. La tarea se completó localmente; para actualizar la base de datos en la nube, debes habilitar la regla para la colección 'tasks' en Firebase Console."
+        );
+      } else {
+        setActionError(errorMessage || "Error al completar la tarea.");
+      }
     }
   };
 
@@ -1265,41 +1340,50 @@ function Dashboard() {
                 </button>
               </div>
 
-              {tasks.length === 0 ? (
+              {tasks.filter((t) => !t.completada).length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--dashboard-muted)" }}>
                   <p>No hay tareas pendientes en el hogar.</p>
                 </div>
               ) : (
                 <div className="dashboard-list">
-                  {tasks.slice(0, 4).map((t) => (
-                    <article className="dashboard-list-row dashboard-task-row" key={t.id}>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleTask(t.id, t.completada)}
-                        style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                        title={t.completada ? "Marcar pendiente" : "Marcar completada"}
-                      >
-                        {t.completada ? (
-                          <CheckSquare size={18} color="#15803d" />
-                        ) : (
-                          <Square size={18} color="#94a3b8" />
-                        )}
-                      </button>
-                      <div className="dashboard-list-copy" style={{ textDecoration: t.completada ? "line-through" : "none", opacity: t.completada ? 0.6 : 1 }}>
-                        <strong>{t.titulo}</strong>
-                        <span>
-                          {t.responsableNombre || "Integrante"} · Vence: {t.fechaVencimiento}
-                        </span>
-                      </div>
-                      <span
-                        className={`dashboard-task-state ${
-                          t.completada ? "dashboard-task-state-scheduled" : "dashboard-task-state-pending"
-                        }`}
-                      >
-                        {t.completada ? "Completada" : "Pendiente"}
-                      </span>
-                    </article>
-                  ))}
+                  {tasks
+                    .filter((t) => !t.completada)
+                    .slice(0, 4)
+                    .map((t) => {
+                      const esResponsable = Boolean(user && t.responsableId === user.uid);
+                      return (
+                        <article className="dashboard-list-row dashboard-task-row" key={t.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSolicitarCompletarTarea(t)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: esResponsable ? "pointer" : "not-allowed",
+                              padding: 0,
+                              opacity: esResponsable ? 1 : 0.4,
+                            }}
+                            title={
+                              esResponsable
+                                ? "Marcar como completada"
+                                : `Asignada a ${t.responsableNombre || "otro integrante"}`
+                            }
+                          >
+                            <Square size={18} color="#94a3b8" />
+                          </button>
+                          <div className="dashboard-list-copy">
+                            <strong>{t.titulo}</strong>
+                            <span>
+                              {t.responsableNombre || "Integrante"}
+                              {esResponsable ? " (Tú)" : ""} · Vence: {t.fechaVencimiento}
+                            </span>
+                          </div>
+                          <span className="dashboard-task-state dashboard-task-state-pending">
+                            Pendiente
+                          </span>
+                        </article>
+                      );
+                    })}
                 </div>
               )}
             </section>
@@ -2190,7 +2274,114 @@ function Dashboard() {
               </div>
             </div>
 
-            {tasks.length === 0 ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px", marginBottom: "20px" }}>
+              <div style={{ background: "#ffffff", padding: "16px", borderRadius: "10px", border: "1px solid #dce8e2" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", display: "block", marginBottom: "4px" }}>
+                  Mis tareas pendientes
+                </span>
+                <strong style={{ fontSize: "20px", color: misTareasPendientesCount > 0 ? "var(--dashboard-ink)" : "var(--dashboard-green)" }}>
+                  {misTareasPendientesCount}
+                </strong>
+                <p style={{ fontSize: "11px", color: "var(--dashboard-muted)", margin: "4px 0 0" }}>
+                  Asignadas a ti por realizar
+                </p>
+              </div>
+
+              <div style={{ background: "#ffffff", padding: "16px", borderRadius: "10px", border: "1px solid #dce8e2" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", display: "block", marginBottom: "4px" }}>
+                  Total tareas pendientes
+                </span>
+                <strong style={{ fontSize: "20px", color: "var(--dashboard-ink)" }}>
+                  {totalTareasPendientesCount}
+                </strong>
+                <p style={{ fontSize: "11px", color: "var(--dashboard-muted)", margin: "4px 0 0" }}>
+                  Responsabilidades activas del hogar
+                </p>
+              </div>
+
+              <div style={{ background: "#ffffff", padding: "16px", borderRadius: "10px", border: "1px solid #dce8e2" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", display: "block", marginBottom: "4px" }}>
+                  Historial de tareas realizadas
+                </span>
+                <strong style={{ fontSize: "20px", color: "#15803d" }}>
+                  {totalTareasRealizadasCount}
+                </strong>
+                <p style={{ fontSize: "11px", color: "var(--dashboard-muted)", margin: "4px 0 0" }}>
+                  {misTareasRealizadasCount} realizadas por ti
+                </p>
+              </div>
+            </div>
+
+            <div className="dashboard-filter-bar" style={{ marginBottom: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", fontWeight: 600 }}>Vista:</span>
+                <div style={{ display: "inline-flex", background: "#f1f5f3", borderRadius: "8px", padding: "2px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEstadoTarea("pendientes")}
+                    style={{
+                      border: "none",
+                      background: filtroEstadoTarea === "pendientes" ? "#ffffff" : "none",
+                      color: filtroEstadoTarea === "pendientes" ? "var(--dashboard-green)" : "#6b7280",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: filtroEstadoTarea === "pendientes" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                    }}
+                  >
+                    Tareas pendientes ({filtroAsignacionTarea === "mis_tareas" ? misTareasPendientesCount : totalTareasPendientesCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEstadoTarea("historial")}
+                    style={{
+                      border: "none",
+                      background: filtroEstadoTarea === "historial" ? "#ffffff" : "none",
+                      color: filtroEstadoTarea === "historial" ? "var(--dashboard-green)" : "#6b7280",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: filtroEstadoTarea === "historial" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                    }}
+                  >
+                    Historial de realizadas ({filtroAsignacionTarea === "mis_tareas" ? misTareasRealizadasCount : totalTareasRealizadasCount})
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "auto", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", fontWeight: 600 }}>Consultar:</span>
+                <select
+                  value={filtroAsignacionTarea}
+                  onChange={(e) => setFiltroAsignacionTarea(e.target.value as "mis_tareas" | "todas")}
+                  className="dashboard-filter-select"
+                >
+                  <option value="mis_tareas">Mis tareas asignadas</option>
+                  <option value="todas">Todas las tareas de la vivienda</option>
+                </select>
+
+                {filtroAsignacionTarea === "todas" && members.length > 0 && (
+                  <select
+                    value={filtroResponsableTarea}
+                    onChange={(e) => setFiltroResponsableTarea(e.target.value)}
+                    className="dashboard-filter-select"
+                  >
+                    <option value="todos">Todos los integrantes</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.nombre} {user && m.id === user.uid ? "(Tú)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            {tareasFiltradas.length === 0 ? (
               <div
                 style={{
                   background: "#ffffff",
@@ -2201,42 +2392,41 @@ function Dashboard() {
                   color: "var(--dashboard-muted)",
                 }}
               >
-                <p style={{ margin: "0 0 12px", fontSize: "16px" }}>No hay tareas registradas en esta vivienda.</p>
-                <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-                  <button
-                    type="button"
-                    onClick={() => setModalTareaOpen(true)}
-                    style={{
-                      background: "var(--dashboard-green)",
-                      color: "#ffffff",
-                      border: "none",
-                      padding: "8px 16px",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    + Asignar primera tarea
-                  </button>
-                  <Link
-                    to="/crear-tarea"
-                    style={{
-                      background: "#ffffff",
-                      color: "var(--dashboard-green)",
-                      border: "1px solid var(--dashboard-green)",
-                      padding: "8px 16px",
-                      borderRadius: "6px",
-                      textDecoration: "none",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Ir a formulario de tarea
-                  </Link>
-                </div>
+                {filtroEstadoTarea === "pendientes" ? (
+                  <>
+                    <p style={{ margin: "0 0 12px", fontSize: "16px" }}>
+                      {filtroAsignacionTarea === "mis_tareas"
+                        ? "No tienes tareas pendientes asignadas en este momento."
+                        : "No hay tareas pendientes en esta vivienda."}
+                    </p>
+                    <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => setModalTareaOpen(true)}
+                        style={{
+                          background: "var(--dashboard-green)",
+                          color: "#ffffff",
+                          border: "none",
+                          padding: "8px 16px",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        + Asignar nueva tarea
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p style={{ margin: 0, fontSize: "16px" }}>
+                    {filtroAsignacionTarea === "mis_tareas"
+                      ? "Aún no tienes tareas registradas en tu historial de realizadas."
+                      : "Aún no hay tareas registradas en el historial de tareas realizadas."}
+                  </p>
+                )}
               </div>
-            ) : (
+            ) : filtroEstadoTarea === "pendientes" ? (
               <div className="dashboard-table-container">
                 <table className="dashboard-table">
                   <thead>
@@ -2246,29 +2436,112 @@ function Dashboard() {
                       <th>Descripción Detallada</th>
                       <th>Responsable Asignado</th>
                       <th>Fecha Programada</th>
+                      <th style={{ textAlign: "right" }}>Acción</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tasks.map((t) => (
+                    {tareasFiltradas.map((t) => {
+                      const esResponsable = Boolean(user && t.responsableId === user.uid);
+                      return (
+                        <tr key={t.id}>
+                          <td>
+                            <button
+                              type="button"
+                              onClick={() => handleSolicitarCompletarTarea(t)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                cursor: esResponsable ? "pointer" : "not-allowed",
+                                padding: 0,
+                                opacity: esResponsable ? 1 : 0.4,
+                              }}
+                              title={
+                                esResponsable
+                                  ? "Marcar como completada"
+                                  : `Asignada a ${t.responsableNombre || "otro integrante"}`
+                              }
+                            >
+                              <Square size={20} color="#94a3b8" />
+                            </button>
+                          </td>
+                          <td>
+                            <strong>{t.titulo}</strong>
+                          </td>
+                          <td style={{ color: "var(--dashboard-muted)", maxWidth: "260px" }}>
+                            {t.descripcion ? (
+                              <span>{t.descripcion}</span>
+                            ) : (
+                              <span style={{ fontStyle: "italic", opacity: 0.6 }}>Sin descripción</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="dashboard-badge dashboard-badge-member">
+                              {t.responsableNombre || "Integrante"}
+                              {esResponsable ? " (Tú)" : ""}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 600 }}>{t.fechaVencimiento}</span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            {esResponsable ? (
+                              <button
+                                type="button"
+                                onClick={() => handleSolicitarCompletarTarea(t)}
+                                style={{
+                                  background: "var(--dashboard-green)",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  padding: "6px 12px",
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "5px",
+                                }}
+                              >
+                                <Check size={14} /> Marcar completada
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: "11px", color: "var(--dashboard-muted)" }}>
+                                Solo responsable
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="dashboard-table-container">
+                <table className="dashboard-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "120px" }}>Estado</th>
+                      <th>Título de la Tarea</th>
+                      <th>Descripción Detallada</th>
+                      <th>Responsable</th>
+                      <th>Fecha Programada</th>
+                      <th>Fecha de Realización</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tareasFiltradas.map((t) => (
                       <tr key={t.id}>
                         <td>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleTask(t.id, t.completada)}
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                            title={t.completada ? "Marcar pendiente" : "Marcar completada"}
+                          <span
+                            className="dashboard-badge dashboard-badge-positive"
+                            style={{ gap: "4px" }}
                           >
-                            {t.completada ? (
-                              <CheckSquare size={20} color="#15803d" />
-                            ) : (
-                              <Square size={20} color="#94a3b8" />
-                            )}
-                          </button>
+                            <Check size={12} /> Realizada
+                          </span>
                         </td>
                         <td>
-                          <strong style={{ textDecoration: t.completada ? "line-through" : "none", opacity: t.completada ? 0.6 : 1 }}>
-                            {t.titulo}
-                          </strong>
+                          <strong>{t.titulo}</strong>
                         </td>
                         <td style={{ color: "var(--dashboard-muted)", maxWidth: "260px" }}>
                           {t.descripcion ? (
@@ -2280,10 +2553,16 @@ function Dashboard() {
                         <td>
                           <span className="dashboard-badge dashboard-badge-member">
                             {t.responsableNombre || "Integrante"}
+                            {user && t.responsableId === user.uid ? " (Tú)" : ""}
                           </span>
                         </td>
                         <td>
-                          <span style={{ fontWeight: 600 }}>{t.fechaVencimiento}</span>
+                          <span>{t.fechaVencimiento}</span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 600, color: "var(--dashboard-green)" }}>
+                            {t.fechaCompletada || "Realizada"}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -2890,6 +3169,15 @@ function Dashboard() {
             setSelectedDebtForPayment(null);
           }}
           onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {tareaACompletar && (
+        <ConfirmarCompletarTareaModal
+          isOpen={Boolean(tareaACompletar)}
+          task={tareaACompletar}
+          onClose={() => setTareaACompletar(null)}
+          onConfirm={handleConfirmarCompletarTarea}
         />
       )}
     </main>
