@@ -31,6 +31,7 @@ export interface ConsultarTareasPendientesProps {
     members?: User[];
     tasks: Task[];
     onToggleTask: (taskId: string, current: boolean) => Promise<void>;
+    onSolicitarCompletarTask?: (task: Task) => void;
     onOpenCrearTareaModal?: () => void;
     // Puntos de extensión para Principio Abierto/Cerrado (OCP)
     customFilter?: TaskFilterPredicate;
@@ -45,6 +46,7 @@ export default function ConsultarTareasPendientes({
     members = [],
     tasks,
     onToggleTask,
+    onSolicitarCompletarTask,
     onOpenCrearTareaModal,
     customFilter,
     customSort,
@@ -104,6 +106,11 @@ export default function ConsultarTareasPendientes({
     }, [tareasVivienda, vistaActiva, filtroResponsable, busqueda, orden, customFilter, customSort]);
 
     const handleToggle = async (t: Task) => {
+        if (!t.completada && onSolicitarCompletarTask) {
+            onSolicitarCompletarTask(t);
+            return;
+        }
+
         try {
             setUpdatingTaskId(t.id);
             await onToggleTask(t.id, t.completada);
@@ -523,11 +530,18 @@ export default function ConsultarTareasPendientes({
                                                 type="button"
                                                 onClick={() => handleToggle(t)}
                                                 disabled={updatingTaskId === t.id}
-                                                title={t.completada ? 'Marcar como pendiente' : 'Marcar como completada'}
+                                                title={
+                                                    t.completada
+                                                        ? 'Marcar como pendiente'
+                                                        : isMine
+                                                        ? 'Marcar como completada'
+                                                        : `Asignada a ${t.responsableNombre || 'otro integrante'}`
+                                                }
                                                 style={{
                                                     background: 'none',
                                                     border: 'none',
-                                                    cursor: 'pointer',
+                                                    cursor: !t.completada && !isMine ? 'not-allowed' : 'pointer',
+                                                    opacity: !t.completada && !isMine ? 0.4 : 1,
                                                     padding: 0,
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
@@ -659,32 +673,67 @@ export default function ConsultarTareasPendientes({
 
                                         {/* Columna 5: Botón Rápido de Acción */}
                                         <td style={{ textAlign: 'right', padding: '12px' }}>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleToggle(t)}
-                                                disabled={updatingTaskId === t.id}
-                                                style={{
-                                                    background: t.completada ? '#ffffff' : 'var(--dashboard-green)',
-                                                    color: t.completada ? 'var(--dashboard-green)' : '#ffffff',
-                                                    border: t.completada ? '1px solid var(--dashboard-green)' : 'none',
-                                                    padding: '6px 12px',
-                                                    borderRadius: '6px',
-                                                    fontSize: '12px',
-                                                    fontWeight: 600,
-                                                    cursor: 'pointer',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '5px',
-                                                }}
-                                            >
-                                                {t.completada ? (
-                                                    <>Reabrir</>
-                                                ) : (
-                                                    <>
-                                                        <Check size={13} /> Marcar hecha
-                                                    </>
-                                                )}
-                                            </button>
+                                            {t.completada ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleToggle(t)}
+                                                    disabled={updatingTaskId === t.id}
+                                                    style={{
+                                                        background: '#ffffff',
+                                                        color: 'var(--dashboard-green)',
+                                                        border: '1px solid var(--dashboard-green)',
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '5px',
+                                                    }}
+                                                >
+                                                    Reabrir
+                                                </button>
+                                            ) : isMine ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleToggle(t)}
+                                                    disabled={updatingTaskId === t.id}
+                                                    style={{
+                                                        background: 'var(--dashboard-green)',
+                                                        color: '#ffffff',
+                                                        border: 'none',
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '5px',
+                                                    }}
+                                                >
+                                                    <Check size={13} /> Marcar hecha
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleToggle(t)}
+                                                    style={{
+                                                        background: 'none',
+                                                        color: 'var(--dashboard-muted)',
+                                                        border: '1px dashed #cbd5e1',
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '12px',
+                                                        cursor: 'not-allowed',
+                                                        opacity: 0.65,
+                                                    }}
+                                                    title={`Asignada a ${t.responsableNombre || 'otro integrante'}`}
+                                                >
+                                                    Solo responsable
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 );

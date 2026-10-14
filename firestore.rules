@@ -1,0 +1,302 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function rutaVivienda(viviendaId) {
+      return /databases/$(database)/documents/dwellings/$(viviendaId);
+    }
+
+    function viviendaExiste(viviendaId) {
+      return viviendaId != null
+        && exists(rutaVivienda(viviendaId));
+    }
+
+    function esIntegrante(viviendaId) {
+      return autenticado()
+        && viviendaExiste(viviendaId)
+        && request.auth.uid in get(
+          rutaVivienda(viviendaId)
+        ).data.integrantes;
+    }
+
+    function esAdministrador(viviendaId) {
+      return autenticado()
+        && viviendaExiste(viviendaId)
+        && get(
+          rutaVivienda(viviendaId)
+        ).data.administradorId == request.auth.uid;
+    }
+
+    function usuarioPertenece(viviendaId, usuarioId) {
+      return viviendaExiste(viviendaId)
+        && usuarioId in get(
+          rutaVivienda(viviendaId)
+        ).data.integrantes;
+    }
+
+    function gastoValido(data) {
+      return data.id is string
+        && data.viviendaId is string
+        && data.concepto is string
+        && data.concepto.size() > 0
+        && data.monto is number
+        && data.monto > 0
+        && data.pagadorId is string
+        && usuarioPertenece(
+          data.viviendaId,
+          data.pagadorId
+        )
+        && data.participantes is list
+        && data.participantes.size() > 0
+        && data.participantes.hasOnly(
+          get(
+            rutaVivienda(data.viviendaId)
+          ).data.integrantes
+        )
+        && data.cuotas is map
+        && data.participantes.hasOnly(
+          data.cuotas.keys()
+        )
+        && data.cuotas.keys().hasOnly(
+          data.participantes
+        );
+    }
+
+    function tareaValida(data) {
+      return data.id is string
+        && data.viviendaId is string
+        && data.titulo is string
+        && data.titulo.size() > 0
+        && data.responsableId is string
+        && usuarioPertenece(
+          data.viviendaId,
+          data.responsableId
+        )
+        && data.fechaVencimiento is string
+        && data.completada is bool;
+    }
+
+    match /users/{uid} {
+      allow create: if autenticado()
+        && request.auth.uid == uid
+        && request.resource.data.id == uid
+        && request.resource.data.nombre is string
+        && request.resource.data.email is string
+        && request.resource.data.ingresoMensual is number
+        && request.resource.data.ingresoMensual >= 0;
+
+      allow get: if autenticado()
+        && (
+          request.auth.uid == uid
+          ||
+          (
+            resource.data.get('viviendaId', null) != null
+            && esIntegrante(
+              resource.data.viviendaId
+            )
+          )
+        );
+
+      allow list: if false;
+
+      allow update: if autenticado()
+        && (
+          (
+            request.auth.uid == uid
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasOnly([
+                'nombre',
+                'ingresoMensual',
+                'telefono',
+                'viviendaId',
+                'updatedAt'
+              ])
+            && request.resource.data.nombre is string
+            && request.resource.data.ingresoMensual is number
+            && request.resource.data.ingresoMensual >= 0
+            && (
+              request.resource.data.get(
+                'viviendaId',
+                null
+              ) == null
+              ||
+              viviendaExiste(
+                request.resource.data.viviendaId
+              )
+            )
+          )
+          ||
+          (
+            resource.data.get(
+              'viviendaId',
+              null
+            ) != null
+            && esAdministrador(
+              resource.data.viviendaId
+            )
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasOnly([
+                'viviendaId',
+                'updatedAt'
+              ])
+            && (
+              request.resource.data.get(
+                'viviendaId',
+                null
+              ) == null
+              ||
+              usuarioPertenece(
+                resource.data.viviendaId,
+                uid
+              )
+            )
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    match /dwellings/{dwellingId} {
+      allow read: if autenticado();
+
+      allow create: if autenticado()
+        && request.resource.data.nombre is string
+        && request.resource.data.direccion is string
+        && request.resource.data.codigoInvitacion is string
+        && request.resource.data.administradorId == request.auth.uid
+        && request.resource.data.integrantes.hasOnly([
+          request.auth.uid
+        ])
+        && request.resource.data.integrantes.size() == 1;
+
+      allow update: if autenticado()
+        && (
+          (
+            esAdministrador(dwellingId)
+            && request.resource.data.codigoInvitacion
+              == resource.data.codigoInvitacion
+            && request.resource.data.creadoEn
+              == resource.data.creadoEn
+            && request.resource.data.administradorId
+              in request.resource.data.integrantes
+          )
+          ||
+          (
+            !(request.auth.uid in resource.data.integrantes)
+            && request.auth.uid in request.resource.data.integrantes
+            && request.resource.data.integrantes.hasAll(
+              resource.data.integrantes
+            )
+            && request.resource.data.integrantes
+              .removeAll(
+                resource.data.integrantes
+              )
+              .hasOnly([
+                request.auth.uid
+              ])
+            && request.resource.data.administradorId
+              == resource.data.administradorId
+            && request.resource.data.codigoInvitacion
+              == resource.data.codigoInvitacion
+            && request.resource.data.creadoEn
+              == resource.data.creadoEn
+          )
+          ||
+          (
+            request.auth.uid in resource.data.integrantes
+            && !(request.auth.uid in request.resource.data.integrantes)
+            && request.resource.data.integrantes.hasAll(
+              resource.data.integrantes.removeAll([
+                request.auth.uid
+              ])
+            )
+            && request.resource.data.administradorId
+              in request.resource.data.integrantes
+          )
+        );
+
+      allow delete: if request.auth != null
+        && get(/databases/$(database)/documents/dwellings/$(resource.data.viviendaId))
+          .data.administradorId == request.auth.uid;
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if autenticado()
+        && esIntegrante(
+          resource.data.viviendaId
+        );
+
+      allow create: if autenticado()
+        && esIntegrante(
+          request.resource.data.viviendaId
+        )
+        && request.resource.data.id == expenseId
+        && gastoValido(
+          request.resource.data
+        );
+
+      allow update: if autenticado()
+        && esAdministrador(
+          resource.data.viviendaId
+        )
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.viviendaId
+          == resource.data.viviendaId
+        && request.resource.data.createdAt
+          == resource.data.createdAt
+        && gastoValido(
+          request.resource.data
+        );
+
+      allow delete: if request.auth != null
+        && get(
+          /databases/$(database)/documents/dwellings/$(resource.data.viviendaId)
+        ).data.administradorId == request.auth.uid;
+    }
+
+    match /tasks/{taskId} {
+      allow read: if autenticado()
+        && esIntegrante(
+          resource.data.viviendaId
+        );
+
+      allow create: if autenticado()
+        && esIntegrante(
+          request.resource.data.viviendaId
+        )
+        && request.resource.data.id == taskId
+        && tareaValida(
+          request.resource.data
+        );
+
+      allow update: if autenticado()
+        && esIntegrante(
+          resource.data.viviendaId
+        )
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.viviendaId
+          == resource.data.viviendaId
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'completada',
+            'estado',
+            'fechaCompletada'
+          ])
+        && request.resource.data.completada is bool;
+
+      allow delete: if false;
+    }
+  }
+}

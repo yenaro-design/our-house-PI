@@ -48,6 +48,7 @@ import {
 import {
   obtenerTareasPorVivienda,
   crearTarea,
+  completarTarea,
   toggleCompletarTarea,
   filtrarYOrdenarTareas,
   getDueDateBadge,
@@ -59,6 +60,7 @@ import {
 import { guardarIngresoMensual } from "../../services/ingresoService";
 import CrearTareaForm from "../../components/CrearTareaForm";
 import RegistrarPagoModal from "../../components/RegistrarPagoModal";
+import ConfirmarCompletarTareaModal from "../../components/ConfirmarCompletarTareaModal";
 import ConsultarTareasPendientes from "../../components/ConsultarTareasPendientes";
 import type { Dwelling } from "../../models/Dwelling";
 import type { User } from "../../models/User";
@@ -89,6 +91,8 @@ function Dashboard() {
   const [filtroParticipanteDeuda, setFiltroParticipanteDeuda] = useState<"todas" | "mis_deudas" | "mis_acreencias">("todas");
   const [modalPagoOpen, setModalPagoOpen] = useState(false);
   const [selectedDebtForPayment, setSelectedDebtForPayment] = useState<Debt | null>(null);
+
+  const [tareaACompletar, setTareaACompletar] = useState<Task | null>(null);
 
   // Filters State (HU12)
   const [busqueda, setBusqueda] = useState("");
@@ -486,15 +490,82 @@ function Dashboard() {
     }
   };
 
+  const handleSolicitarCompletarTarea = (task: Task) => {
+    if (user && task.responsableId !== user.uid) {
+      setActionError(
+        `Solo el integrante asignado (${task.responsableNombre || "responsable"}) puede marcar esta tarea como completada.`
+      );
+      setTimeout(() => setActionError(null), 4000);
+      return;
+    }
+    setActionError(null);
+    setTareaACompletar(task);
+  };
 
   const handleToggleTask = async (taskId: string, current: boolean) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    if (!current) {
+      handleSolicitarCompletarTarea(task);
+      return;
+    }
+
     try {
-      await toggleCompletarTarea(taskId, !current);
+      await toggleCompletarTarea(taskId, false);
       setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, completada: !current } : t))
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, completada: false, estado: "pendiente", fechaCompletada: undefined }
+            : t
+        )
       );
-    } catch (e) {
-      console.warn("Error al actualizar tarea:", e);
+      setActionSuccess(`Tarea "${task.titulo}" restablecida a pendientes.`);
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setActionError("Error al restablecer la tarea.");
+    }
+  };
+
+  const handleConfirmarCompletarTarea = async (task: Task) => {
+    try {
+      const actualizada = await completarTarea(task.id);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, completada: true, estado: 'realizada', fechaCompletada: actualizada.fechaCompletada }
+            : t
+        )
+      );
+      setTareaACompletar(null);
+      setActionSuccess(`Tarea "${task.titulo}" completada y guardada en el historial.`);
+      setTimeout(() => setActionSuccess(null), 3500);
+    } catch (e: unknown) {
+      const firebaseCode =
+        typeof e === "object" && e !== null && "code" in e
+          ? String((e as { code?: unknown }).code)
+          : "";
+      const errorMessage = e instanceof Error ? e.message : "";
+      const isPermissionError =
+        firebaseCode === "permission-denied" || errorMessage.includes("insufficient permissions");
+
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, completada: true, estado: 'realizada', fechaCompletada: new Date().toISOString().split("T")[0] }
+            : t
+        )
+      );
+      setTareaACompletar(null);
+
+      if (isPermissionError) {
+        setActionError(
+          "Firestore rechazó la escritura por permisos insuficientes. La tarea se completó localmente; para actualizar la base de datos en la nube, debes habilitar la regla para la colección 'tasks' en Firebase Console."
+        );
+      } else {
+        setActionError(errorMessage || "Error al completar la tarea.");
+      }
     }
   };
 
@@ -1295,21 +1366,31 @@ function Dashboard() {
                 <div className="dashboard-list">
                   {tareasPendientesHogar.slice(0, 4).map((t) => {
                     const badge = getDueDateBadge(t.fechaVencimiento);
-                    const isMine = user && t.responsableId === user.uid;
+                    const esResponsable = Boolean(user && t.responsableId === user.uid);
                     return (
                       <article className="dashboard-list-row dashboard-task-row" key={t.id}>
                         <button
                           type="button"
-                          onClick={() => handleToggleTask(t.id, t.completada)}
-                          style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                          title="Marcar completada (se retirará de pendientes)"
+                          onClick={() => handleSolicitarCompletarTarea(t)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: esResponsable ? "pointer" : "not-allowed",
+                            padding: 0,
+                            opacity: esResponsable ? 1 : 0.4,
+                          }}
+                          title={
+                            esResponsable
+                              ? "Marcar como completada"
+                              : `Asignada a ${t.responsableNombre || "otro integrante"}`
+                          }
                         >
                           <Square size={18} color="#94a3b8" />
                         </button>
                         <div className="dashboard-list-copy">
                           <strong>{t.titulo}</strong>
                           <span>
-                            {t.responsableNombre || "Integrante"}{isMine ? " (Tú)" : ""} · Vence: {t.fechaVencimiento}
+                            {t.responsableNombre || "Integrante"}{esResponsable ? " (Tú)" : ""} · Vence: {t.fechaVencimiento}
                           </span>
                         </div>
                         {badge && (
@@ -2205,6 +2286,7 @@ function Dashboard() {
               members={members}
               tasks={tasks}
               onToggleTask={handleToggleTask}
+              onSolicitarCompletarTask={handleSolicitarCompletarTarea}
               onOpenCrearTareaModal={() => {
                 setActionError(null);
                 setModalTareaOpen(true);
@@ -2809,6 +2891,15 @@ function Dashboard() {
             setSelectedDebtForPayment(null);
           }}
           onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {tareaACompletar && (
+        <ConfirmarCompletarTareaModal
+          isOpen={Boolean(tareaACompletar)}
+          task={tareaACompletar}
+          onClose={() => setTareaACompletar(null)}
+          onConfirm={handleConfirmarCompletarTarea}
         />
       )}
     </main>
