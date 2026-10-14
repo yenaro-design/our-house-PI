@@ -20,6 +20,7 @@ function AppRoutes() {
       <Route path="/unirse-vivienda" element={<UnirseViviendaForm />} />
       <Route path="/ingreso-mensual" element={<IngresoMensualForm />} />
       <Route path="/crear-tarea" element={<CrearTareaForm />} />
+      <Route path="/tareas" element={<Navigate to="/dashboard#tareas" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
