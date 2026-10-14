@@ -24,6 +24,8 @@ import {
   Loader2,
   Info,
   Sparkles,
+  HandCoins,
+  Receipt,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -47,12 +49,18 @@ import {
   crearTarea,
   toggleCompletarTarea,
 } from "../../services/taskService";
+import {
+  sincronizarDeudasDesdeGastos,
+  obtenerPagosPorVivienda,
+} from "../../services/debtService";
 import { guardarIngresoMensual } from "../../services/ingresoService";
 import CrearTareaForm from "../../components/CrearTareaForm";
+import RegistrarPagoModal from "../../components/RegistrarPagoModal";
 import type { Dwelling } from "../../models/Dwelling";
 import type { User } from "../../models/User";
 import type { Expense } from "../../models/Expense";
 import type { Task } from "../../models/Task";
+import type { Debt, DebtPayment } from "../../models/Debt";
 import "./Dashboard.css";
 
 function Dashboard() {
@@ -63,12 +71,20 @@ function Dashboard() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // App Main State
-  const [activeTab, setActiveTab] = useState<"resumen" | "gastos" | "integrantes" | "tareas">("resumen");
+  const [activeTab, setActiveTab] = useState<"resumen" | "gastos" | "deudas" | "integrantes" | "tareas">("resumen");
   const [dwelling, setDwelling] = useState<Dwelling | null>(null);
   const [members, setMembers] = useState<User[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [payments, setPayments] = useState<DebtPayment[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Debts Filters & Modal
+  const [filtroEstadoDeuda, setFiltroEstadoDeuda] = useState<"todas" | "pendientes" | "liquidadas">("pendientes");
+  const [filtroParticipanteDeuda, setFiltroParticipanteDeuda] = useState<"todas" | "mis_deudas" | "mis_acreencias">("todas");
+  const [modalPagoOpen, setModalPagoOpen] = useState(false);
+  const [selectedDebtForPayment, setSelectedDebtForPayment] = useState<Debt | null>(null);
 
   // Filters State (HU12)
   const [busqueda, setBusqueda] = useState("");
@@ -99,7 +115,6 @@ function Dashboard() {
   const [guardandoGasto, setGuardandoGasto] = useState(false);
   const [gastoFormError, setGastoFormError] = useState<string | null>(null);
 
-
   // Quick Income Form State (HU04)
   const [nuevoIngresoInput, setNuevoIngresoInput] = useState("");
   const [guardandoIngreso, setGuardandoIngreso] = useState(false);
@@ -116,7 +131,7 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const tabs = ["resumen", "gastos", "integrantes", "tareas"] as const;
+    const tabs = ["resumen", "gastos", "deudas", "integrantes", "tareas"] as const;
     const syncTabFromHash = () => {
       const requestedTab = window.location.hash.slice(1) as (typeof tabs)[number];
       setActiveTab(tabs.includes(requestedTab) ? requestedTab : "resumen");
@@ -139,6 +154,8 @@ function Dashboard() {
           setMembers([]);
           setExpenses([]);
           setTasks([]);
+          setDebts([]);
+          setPayments([]);
           setLoading(false);
         }
         return;
@@ -150,15 +167,22 @@ function Dashboard() {
         setDwelling(d);
 
         if (d) {
-          const [integrantes, gastosList, tareasList] = await Promise.all([
+          const [integrantes, gastosList, tareasList, pagosList] = await Promise.all([
             obtenerIntegrantesVivienda(d.id),
             obtenerGastosPorVivienda(d.id),
             obtenerTareasPorVivienda(d.id),
+            obtenerPagosPorVivienda(d.id),
           ]);
           if (!isSubscribed) return;
           setMembers(integrantes);
           setExpenses(gastosList);
           setTasks(tareasList);
+          setPayments(pagosList);
+
+          // Sincronizar deudas derivadas de los gastos compartidos
+          const deudasSincronizadas = await sincronizarDeudasDesdeGastos(d.id, gastosList, integrantes);
+          if (!isSubscribed) return;
+          setDebts(deudasSincronizadas);
 
           // Pre-fill default payer and participants
           if (user) {
@@ -182,10 +206,10 @@ function Dashboard() {
     };
   }, [userProfile?.viviendaId, user]);
 
-  // Consolidated Balances across all members
+  // Consolidated Balances across all members (considering expenses and payments)
   const saldosConsolidados = useMemo(() => {
-    return calcularSaldosConsolidados(expenses, members);
-  }, [expenses, members]);
+    return calcularSaldosConsolidados(expenses, members, payments);
+  }, [expenses, members, payments]);
 
   // Current user's balance
   const userSaldo = useMemo(() => {
@@ -217,6 +241,69 @@ function Dashboard() {
     const participantesUsers = members.filter((m) => gastoParticipantes.includes(m.id));
     return calcularDistribucionProporcional(monto, gastoPagadorId, participantesUsers);
   }, [gastoMonto, gastoPagadorId, gastoParticipantes, members]);
+
+  // Filtered Debts
+  const deudasFiltradas = useMemo(() => {
+    return debts.filter((d) => {
+      // Estado
+      if (filtroEstadoDeuda === "pendientes" && d.estado === "liquidada") return false;
+      if (filtroEstadoDeuda === "liquidadas" && d.estado !== "liquidada") return false;
+
+      // Participante (mis deudas vs mis acreencias)
+      if (user) {
+        if (filtroParticipanteDeuda === "mis_deudas" && d.deudorId !== user.uid) return false;
+        if (filtroParticipanteDeuda === "mis_acreencias" && d.acreedorId !== user.uid) return false;
+      }
+      return true;
+    });
+  }, [debts, filtroEstadoDeuda, filtroParticipanteDeuda, user]);
+
+  // Total pendiente que debe el usuario actual
+  const totalQueDebo = useMemo(() => {
+    if (!user) return 0;
+    return debts
+      .filter((d) => d.deudorId === user.uid && d.estado !== "liquidada")
+      .reduce((sum, d) => sum + d.saldoPendiente, 0);
+  }, [debts, user]);
+
+  // Total que le deben al usuario actual
+  const totalQueMeDeben = useMemo(() => {
+    if (!user) return 0;
+    return debts
+      .filter((d) => d.acreedorId === user.uid && d.estado !== "liquidada")
+      .reduce((sum, d) => sum + d.saldoPendiente, 0);
+  }, [debts, user]);
+
+  // Helper to open payment modal (Criterio 1)
+  const handleOpenPagoModal = (debt?: Debt) => {
+    setSelectedDebtForPayment(debt || null);
+    setModalPagoOpen(true);
+  };
+
+  // Callback when a payment is confirmed (Criterios 5 & 6)
+  const handlePaymentSuccess = async () => {
+    if (!dwelling) return;
+    try {
+      const [gastosList, integrantes, pagosList] = await Promise.all([
+        obtenerGastosPorVivienda(dwelling.id),
+        obtenerIntegrantesVivienda(dwelling.id),
+        obtenerPagosPorVivienda(dwelling.id),
+      ]);
+      const deudasSincronizadas = await sincronizarDeudasDesdeGastos(
+        dwelling.id,
+        gastosList,
+        integrantes
+      );
+      setExpenses(gastosList);
+      setMembers(integrantes);
+      setPayments(pagosList);
+      setDebts(deudasSincronizadas);
+      setActionSuccess("¡Transacción registrada y saldo actualizado exitosamente!");
+      setTimeout(() => setActionSuccess(null), 3500);
+    } catch (e) {
+      console.warn("Error al refrescar finanzas tras pago:", e);
+    }
+  };
 
   const handleCopyCode = async (code: string) => {
     try {
@@ -570,6 +657,15 @@ function Dashboard() {
       });
 
       await refreshUserProfile();
+      const [gastosList, pagosList] = await Promise.all([
+        obtenerGastosPorVivienda(d.id),
+        obtenerPagosPorVivienda(d.id),
+      ]);
+      const deudasSincronizadas = await sincronizarDeudasDesdeGastos(d.id, gastosList, allMembers);
+      setExpenses(gastosList);
+      setMembers(allMembers);
+      setDebts(deudasSincronizadas);
+      setPayments(pagosList);
       setActionSuccess("¡Vivienda y datos de demostración creados exitosamente!");
       setTimeout(() => setActionSuccess(null), 3500);
     } catch (err: unknown) {
@@ -628,6 +724,14 @@ function Dashboard() {
             style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Gastos ({expenses.length})
+          </button>
+          <button
+            type="button"
+            className={`dashboard-nav-link ${activeTab === "deudas" ? "dashboard-nav-link-active" : ""}`}
+            onClick={() => setActiveTab("deudas")}
+            style={{ background: "none", border: "none", cursor: "pointer" }}
+          >
+            Deudas y Pagos ({debts.filter((d) => d.estado !== "liquidada").length})
           </button>
           <button
             type="button"
@@ -717,6 +821,18 @@ function Dashboard() {
               >
                 <CheckSquare size={14} /> Crear tarea doméstica
               </Link>
+              <button
+                type="button"
+                className="dashboard-dropdown-item"
+                onClick={() => {
+                  setDropdownOpen(false);
+                  handleOpenPagoModal();
+                }}
+                role="menuitem"
+                id="link-register-payment"
+              >
+                <HandCoins size={14} /> Registrar pago de deuda
+              </button>
               <hr style={{ margin: "4px 0", border: 0, borderTop: "1px solid var(--dashboard-line)" }} />
               <button
                 type="button"
@@ -1143,6 +1259,71 @@ function Dashboard() {
                 </div>
               )}
             </section>
+
+            {/* Obligaciones y Deudas Pendientes (Resumen) */}
+            <section className="dashboard-section dashboard-debts" id="deudas-resumen">
+              <div className="dashboard-section-heading">
+                <div>
+                  <p className="dashboard-eyebrow">Cuentas Claras</p>
+                  <h2>Deudas entre integrantes</h2>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("deudas")}
+                    style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                  >
+                    Ver todas ({debts.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPagoModal()}
+                    style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                  >
+                    <HandCoins size={14} /> Pagar
+                  </button>
+                </div>
+              </div>
+
+              {debts.filter((d) => d.estado !== "liquidada").length === 0 ? (
+                <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--dashboard-muted)" }}>
+                  <p>¡No hay deudas pendientes en el hogar!</p>
+                </div>
+              ) : (
+                <div className="dashboard-list">
+                  {debts.filter((d) => d.estado !== "liquidada").slice(0, 4).map((d) => {
+                    const soyDeudor = user && d.deudorId === user.uid;
+                    return (
+                      <article
+                        className="dashboard-list-row"
+                        key={d.id}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => handleOpenPagoModal(d)}
+                        title="Registrar pago de esta deuda"
+                      >
+                        <span className={`dashboard-expense-icon ${soyDeudor ? "dashboard-expense-icon-red" : "dashboard-expense-icon-green"}`}>
+                          $
+                        </span>
+                        <div className="dashboard-list-copy">
+                          <strong>{d.gastoConcepto}</strong>
+                          <span>
+                            {d.deudorNombre} ➔ {d.acreedorNombre} · {d.estado === "parcial" ? "Abono parcial" : "Pendiente"}
+                          </span>
+                        </div>
+                        <div style={{ textAlign: "right", marginLeft: "auto" }}>
+                          <strong className="dashboard-list-amount" style={{ color: soyDeudor ? "#b91c1c" : "#15803d" }}>
+                            {formatCOP(d.saldoPendiente)}
+                          </strong>
+                          <div style={{ fontSize: "11px", color: "var(--dashboard-green)", fontWeight: 600 }}>
+                            {soyDeudor ? "Tú debes · Abonar ➜" : "Te deben · Registrar pago"}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </div>
         )}
 
@@ -1370,7 +1551,370 @@ function Dashboard() {
           </section>
         )}
 
-        {/* TAB 3: INTEGRANTES Y SALDOS (HU07, HU08, HU09) */}
+        {/* TAB 3: DEUDAS Y PAGOS ENTRE INTEGRANTES */}
+        {activeTab === "deudas" && (
+          <section className="dashboard-tab-panel">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
+              <div>
+                <h2 style={{ fontSize: "22px", margin: "0 0 4px", color: "var(--dashboard-ink)" }}>
+                  Deudas y Obligaciones entre Integrantes
+                </h2>
+                <p style={{ margin: 0, fontSize: "14px", color: "var(--dashboard-muted)" }}>
+                  Registro y confirmación de pagos parciales o totales de deudas para actualizar las obligaciones del hogar.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="dashboard-primary-action"
+                onClick={() => handleOpenPagoModal()}
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+              >
+                <HandCoins size={16} /> Registrar transacción de pago
+              </button>
+            </div>
+
+            {/* Quick Metrics */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", marginBottom: "24px" }}>
+              <div style={{ background: "#ffffff", padding: "16px", borderRadius: "10px", border: "1px solid #dce8e2" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", display: "block", marginBottom: "4px" }}>
+                  Tus deudas pendientes
+                </span>
+                <strong style={{ fontSize: "20px", color: totalQueDebo > 0 ? "#b91c1c" : "#15803d" }}>
+                  {formatCOP(totalQueDebo)}
+                </strong>
+                <p style={{ fontSize: "11px", color: "var(--dashboard-muted)", margin: "4px 0 0" }}>
+                  {debts.filter((d) => user && d.deudorId === user.uid && d.estado !== "liquidada").length} obligaciones por saldar
+                </p>
+              </div>
+
+              <div style={{ background: "#ffffff", padding: "16px", borderRadius: "10px", border: "1px solid #dce8e2" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", display: "block", marginBottom: "4px" }}>
+                  Te deben a ti
+                </span>
+                <strong style={{ fontSize: "20px", color: totalQueMeDeben > 0 ? "#15803d" : "inherit" }}>
+                  {formatCOP(totalQueMeDeben)}
+                </strong>
+                <p style={{ fontSize: "11px", color: "var(--dashboard-muted)", margin: "4px 0 0" }}>
+                  {debts.filter((d) => user && d.acreedorId === user.uid && d.estado !== "liquidada").length} cobros pendientes
+                </p>
+              </div>
+
+              <div style={{ background: "#ffffff", padding: "16px", borderRadius: "10px", border: "1px solid #dce8e2" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", display: "block", marginBottom: "4px" }}>
+                  Total deudas liquidadas
+                </span>
+                <strong style={{ fontSize: "20px", color: "#15803d" }}>
+                  {debts.filter((d) => d.estado === "liquidada").length}
+                </strong>
+                <p style={{ fontSize: "11px", color: "var(--dashboard-muted)", margin: "4px 0 0" }}>
+                  Cuentas saldadas al 100%
+                </p>
+              </div>
+
+              <div style={{ background: "#ffffff", padding: "16px", borderRadius: "10px", border: "1px solid #dce8e2" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", display: "block", marginBottom: "4px" }}>
+                  Transacciones de pago
+                </span>
+                <strong style={{ fontSize: "20px", color: "var(--dashboard-ink)" }}>
+                  {payments.length}
+                </strong>
+                <p style={{ fontSize: "11px", color: "var(--dashboard-muted)", margin: "4px 0 0" }}>
+                  Abonos y pagos totales registrados
+                </p>
+              </div>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="dashboard-filter-bar" style={{ marginBottom: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", fontWeight: 600 }}>Estado:</span>
+                <div style={{ display: "inline-flex", background: "#f1f5f3", borderRadius: "8px", padding: "2px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEstadoDeuda("pendientes")}
+                    style={{
+                      border: "none",
+                      background: filtroEstadoDeuda === "pendientes" ? "#ffffff" : "none",
+                      color: filtroEstadoDeuda === "pendientes" ? "var(--dashboard-green)" : "#6b7280",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: filtroEstadoDeuda === "pendientes" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                    }}
+                  >
+                    Pendientes / Con Saldo ({debts.filter((d) => d.estado !== "liquidada").length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEstadoDeuda("liquidadas")}
+                    style={{
+                      border: "none",
+                      background: filtroEstadoDeuda === "liquidadas" ? "#ffffff" : "none",
+                      color: filtroEstadoDeuda === "liquidadas" ? "var(--dashboard-green)" : "#6b7280",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: filtroEstadoDeuda === "liquidadas" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                    }}
+                  >
+                    Liquidadas ({debts.filter((d) => d.estado === "liquidada").length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltroEstadoDeuda("todas")}
+                    style={{
+                      border: "none",
+                      background: filtroEstadoDeuda === "todas" ? "#ffffff" : "none",
+                      color: filtroEstadoDeuda === "todas" ? "var(--dashboard-green)" : "#6b7280",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: filtroEstadoDeuda === "todas" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                    }}
+                  >
+                    Todas ({debts.length})
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "auto" }}>
+                <span style={{ fontSize: "12px", color: "var(--dashboard-muted)", fontWeight: 600 }}>Filtrar por:</span>
+                <select
+                  value={filtroParticipanteDeuda}
+                  onChange={(e) => setFiltroParticipanteDeuda(e.target.value as "todas" | "mis_deudas" | "mis_acreencias")}
+                  className="dashboard-filter-select"
+                >
+                  <option value="todas">Todas las obligaciones del hogar</option>
+                  <option value="mis_deudas">Solo lo que yo debo (Mis deudas)</option>
+                  <option value="mis_acreencias">Solo lo que me deben a mí</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Debts Table */}
+            {deudasFiltradas.length === 0 ? (
+              <div
+                style={{
+                  background: "#ffffff",
+                  padding: "48px 24px",
+                  textAlign: "center",
+                  borderRadius: "12px",
+                  border: "1px solid #dce8e2",
+                  color: "var(--dashboard-muted)",
+                  marginBottom: "32px",
+                }}
+              >
+                <HandCoins size={36} color="var(--dashboard-green)" style={{ margin: "0 auto 12px" }} />
+                <p style={{ margin: "0 0 12px", fontSize: "16px" }}>
+                  No se encontraron deudas con el filtro seleccionado.
+                </p>
+                {filtroEstadoDeuda !== "todas" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiltroEstadoDeuda("todas");
+                      setFiltroParticipanteDeuda("todas");
+                    }}
+                    style={{
+                      background: "var(--dashboard-green)",
+                      color: "#ffffff",
+                      border: "none",
+                      padding: "8px 16px",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Ver todas las deudas
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="dashboard-table-container" style={{ marginBottom: "36px" }}>
+                <table className="dashboard-table">
+                  <thead>
+                    <tr>
+                      <th>Gasto de Origen</th>
+                      <th>Deudor (Pagador)</th>
+                      <th>Acreedor (Receptor)</th>
+                      <th>Cuota Original</th>
+                      <th>Monto Pagado</th>
+                      <th>Saldo Pendiente</th>
+                      <th>Estado</th>
+                      <th style={{ textAlign: "center" }}>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deudasFiltradas.map((d) => {
+                      const soyDeudor = user && d.deudorId === user.uid;
+                      const soyAcreedor = user && d.acreedorId === user.uid;
+
+                      return (
+                        <tr key={d.id}>
+                          <td>
+                            <strong>{d.gastoConcepto}</strong>
+                            <div style={{ fontSize: "11px", color: "var(--dashboard-muted)" }}>
+                              {d.gastoFecha}
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: soyDeudor ? 700 : 500, color: soyDeudor ? "#b91c1c" : "inherit" }}>
+                              {d.deudorNombre} {soyDeudor ? "(Tú)" : ""}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: soyAcreedor ? 700 : 500, color: soyAcreedor ? "#15803d" : "inherit" }}>
+                              {d.acreedorNombre} {soyAcreedor ? "(Tú)" : ""}
+                            </span>
+                          </td>
+                          <td>{formatCOP(d.montoOriginal)}</td>
+                          <td>
+                            <span style={{ color: d.montoPagado > 0 ? "#15803d" : "var(--dashboard-muted)", fontWeight: d.montoPagado > 0 ? 600 : 400 }}>
+                              {formatCOP(d.montoPagado)}
+                            </span>
+                          </td>
+                          <td>
+                            <strong style={{ color: d.saldoPendiente > 0 ? "#b91c1c" : "#15803d" }}>
+                              {formatCOP(d.saldoPendiente)}
+                            </strong>
+                          </td>
+                          <td>
+                            {d.estado === "liquidada" ? (
+                              <span className="dashboard-badge dashboard-badge-positive">Liquidada ✓</span>
+                            ) : d.estado === "parcial" ? (
+                              <span className="dashboard-badge dashboard-badge-member">Pago Parcial</span>
+                            ) : (
+                              <span className="dashboard-badge dashboard-badge-negative">Pendiente</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            {d.estado !== "liquidada" ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenPagoModal(d)}
+                                style={{
+                                  background: "#f0fdf4",
+                                  border: "1px solid #bbf7d0",
+                                  color: "#166534",
+                                  padding: "6px 12px",
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: 700,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                }}
+                                title="Registrar pago parcial o total de esta deuda"
+                              >
+                                <DollarSign size={13} /> Pagar / Abonar
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: "12px", color: "#15803d", fontWeight: 600 }}>
+                                Saldada
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Historial de Pagos y Transacciones Confirmadas (Criterio 4) */}
+            <div style={{ marginTop: "24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
+                <Receipt size={18} color="var(--dashboard-green)" />
+                <h3 style={{ fontSize: "18px", margin: 0, color: "var(--dashboard-ink)" }}>
+                  Historial de Transacciones de Pago Confirmadas ({payments.length})
+                </h3>
+              </div>
+
+              {payments.length === 0 ? (
+                <div
+                  style={{
+                    background: "#ffffff",
+                    padding: "32px 16px",
+                    textAlign: "center",
+                    borderRadius: "10px",
+                    border: "1px solid #dce8e2",
+                    color: "var(--dashboard-muted)",
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: "14px" }}>
+                    Aún no se han registrado transacciones de pago entre los integrantes.
+                  </p>
+                </div>
+              ) : (
+                <div className="dashboard-table-container">
+                  <table className="dashboard-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Gasto Asociado</th>
+                        <th>Pagador (Deudor)</th>
+                        <th>Receptor (Acreedor)</th>
+                        <th>Modalidad</th>
+                        <th>Monto Pagado</th>
+                        <th>Detalle / Nota</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payments.map((p) => (
+                        <tr key={p.id}>
+                          <td>{p.fecha}</td>
+                          <td>
+                            <strong>{p.gastoConcepto}</strong>
+                          </td>
+                          <td>
+                            <span>{p.pagadorNombre}</span>
+                          </td>
+                          <td>
+                            <span>{p.receptorNombre}</span>
+                          </td>
+                          <td>
+                            <span
+                              className={`dashboard-badge ${
+                                p.tipo === "total"
+                                  ? "dashboard-badge-positive"
+                                  : "dashboard-badge-member"
+                              }`}
+                            >
+                              {p.tipo === "total" ? "Pago Total" : "Pago Parcial"}
+                            </span>
+                          </td>
+                          <td>
+                            <strong style={{ color: "#15803d" }}>{formatCOP(p.monto)}</strong>
+                          </td>
+                          <td style={{ color: "var(--dashboard-muted)", fontSize: "12px" }}>
+                            {p.nota || "Sin nota"}
+                          </td>
+                          <td>
+                            <span className="dashboard-badge dashboard-badge-positive">
+                              Confirmado ✓
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* TAB 4: INTEGRANTES Y SALDOS (HU07, HU08, HU09) */}
         {activeTab === "integrantes" && (
           <section className="dashboard-tab-panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
@@ -2148,6 +2692,21 @@ function Dashboard() {
             />
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: REGISTRAR Y CONFIRMAR PAGO DE DEUDA                              */}
+      {/* ========================================================================= */}
+      {modalPagoOpen && (
+        <RegistrarPagoModal
+          deuda={selectedDebtForPayment}
+          deudasDisponibles={debts.filter((d) => d.estado !== "liquidada")}
+          onClose={() => {
+            setModalPagoOpen(false);
+            setSelectedDebtForPayment(null);
+          }}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
       )}
     </main>
   );

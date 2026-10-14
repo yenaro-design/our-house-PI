@@ -9,6 +9,7 @@ import {
 import { db, isFirebasePersistenceAvailable } from '../firebase/config';
 import type { Expense, ExpenseShare } from '../models/Expense';
 import type { User } from '../models/User';
+import type { DebtPayment } from '../models/Debt';
 
 const EXPENSES_STORAGE_KEY = 'our_house_expenses';
 
@@ -429,7 +430,8 @@ export function filtrarGastos(
  */
 export function calcularSaldosConsolidados(
     gastos: Expense[],
-    integrantes: User[]
+    integrantes: User[],
+    pagos?: DebtPayment[]
 ): Record<string, number> {
     const saldos: Record<string, number> = {};
 
@@ -452,6 +454,18 @@ export function calcularSaldosConsolidados(
             saldos[userId] -= cuota;
         });
     });
+
+    // Descontar pagos registrados entre integrantes
+    if (pagos && pagos.length > 0) {
+        pagos.forEach((p) => {
+            if (saldos[p.pagadorId] !== undefined) {
+                saldos[p.pagadorId] += p.monto;
+            }
+            if (saldos[p.receptorId] !== undefined) {
+                saldos[p.receptorId] -= p.monto;
+            }
+        });
+    }
 
     return saldos;
 }
