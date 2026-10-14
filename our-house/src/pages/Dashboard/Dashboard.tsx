@@ -40,6 +40,7 @@ import {
   obtenerGastosPorVivienda,
   registrarGasto,
   actualizarGasto,
+  eliminarGasto,
   filtrarGastos,
   calcularSaldosConsolidados,
   calcularDistribucionProporcional,
@@ -97,6 +98,7 @@ function Dashboard() {
   const [modalTareaOpen, setModalTareaOpen] = useState(false);
   const [modalIngresoOpen, setModalIngresoOpen] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<Expense | null>(null);
+  const [expensePendingDeletion, setExpensePendingDeletion] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Feedback & Copy State
@@ -113,6 +115,7 @@ function Dashboard() {
   const [gastoCategoria, setGastoCategoria] = useState("Mercado");
   const [gastoFecha, setGastoFecha] = useState(() => new Date().toISOString().split("T")[0]);
   const [guardandoGasto, setGuardandoGasto] = useState(false);
+  const [eliminandoGastoId, setEliminandoGastoId] = useState<string | null>(null);
   const [gastoFormError, setGastoFormError] = useState<string | null>(null);
 
   // Quick Income Form State (HU04)
@@ -426,6 +429,48 @@ function Dashboard() {
       );
     } finally {
       setGuardandoGasto(false);
+    }
+  };
+
+  const handleSolicitarEliminarGasto = (gasto: Expense) => {
+    if (!dwelling || !user || dwelling.administradorId !== user.uid) return;
+    setActionError(null);
+    setExpensePendingDeletion(gasto);
+  };
+
+  const handleEliminarGasto = async () => {
+    if (!dwelling || !user || !expensePendingDeletion || dwelling.administradorId !== user.uid) return;
+
+    const gasto = expensePendingDeletion;
+    setExpensePendingDeletion(null);
+
+    try {
+      setEliminandoGastoId(gasto.id);
+      setActionError(null);
+      await eliminarGasto({
+        gastoId: gasto.id,
+        viviendaId: dwelling.id,
+        administradorId: dwelling.administradorId,
+        usuarioId: user.uid,
+      });
+      setExpenses((prev) => prev.filter((item) => item.id !== gasto.id));
+      setSelectedExpenseForDetail(null);
+      setActionSuccess(`Gasto "${gasto.concepto}" eliminado. Los saldos fueron recalculados.`);
+      setTimeout(() => setActionSuccess(null), 3500);
+    } catch (err: unknown) {
+      const firebaseCode =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code?: unknown }).code)
+          : "";
+      setActionError(
+        firebaseCode === "permission-denied"
+          ? "Firestore rechazó la eliminación por permisos insuficientes. Verifica que las reglas permitan al administrador eliminar este gasto."
+          : err instanceof Error
+            ? err.message
+            : "No se pudo eliminar el gasto."
+      );
+    } finally {
+      setEliminandoGastoId(null);
     }
   };
 
@@ -1519,6 +1564,29 @@ function Dashboard() {
                                 <Pencil size={13} /> Editar
                               </button>
                             )}
+                            {dwelling?.administradorId === user?.uid && (
+                              <button
+                                type="button"
+                                onClick={() => handleSolicitarEliminarGasto(g)}
+                                disabled={eliminandoGastoId === g.id}
+                                style={{
+                                  background: "#fff5f5",
+                                  border: "1px solid #feb2b2",
+                                  color: "#b91c1c",
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  cursor: eliminandoGastoId === g.id ? "wait" : "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                }}
+                                title="Eliminar gasto"
+                              >
+                                <Trash2 size={13} /> {eliminandoGastoId === g.id ? "Eliminando..." : "Eliminar"}
+                              </button>
+                            )}
                             {dwelling?.administradorId !== user?.uid && (
                               <button
                                 type="button"
@@ -2228,6 +2296,101 @@ function Dashboard() {
         )}
       </section>
 
+      {expensePendingDeletion && (
+        <div
+          className="dashboard-modal-backdrop"
+          onClick={() => {
+            if (!eliminandoGastoId) setExpensePendingDeletion(null);
+          }}
+        >
+          <div
+            className="dashboard-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-expense-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "460px" }}
+          >
+            <div className="dashboard-modal-header">
+              <h3 id="delete-expense-title" className="dashboard-modal-title">
+                <Trash2 size={20} color="#b91c1c" />
+                Confirmar eliminación
+              </h3>
+              <button
+                type="button"
+                className="dashboard-modal-close"
+                onClick={() => setExpensePendingDeletion(null)}
+                disabled={Boolean(eliminandoGastoId)}
+                aria-label="Cerrar confirmación"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "10px",
+                padding: "14px",
+                background: "#fff5f5",
+                border: "1px solid #fecaca",
+                borderRadius: "8px",
+                color: "#7f1d1d",
+                fontSize: "13px",
+                lineHeight: 1.5,
+              }}
+            >
+              <AlertCircle size={18} style={{ flexShrink: 0, marginTop: "1px" }} />
+              <span>
+                Se eliminará el gasto <strong>"{expensePendingDeletion.concepto}"</strong> por un total de {formatCOP(expensePendingDeletion.monto)}. Esta acción también actualizará los saldos de la vivienda.
+              </span>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+              <button
+                type="button"
+                onClick={() => setExpensePendingDeletion(null)}
+                disabled={Boolean(eliminandoGastoId)}
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #cbd5e1",
+                  color: "var(--dashboard-ink)",
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleEliminarGasto()}
+                disabled={Boolean(eliminandoGastoId)}
+                style={{
+                  background: "#b91c1c",
+                  border: "1px solid #b91c1c",
+                  color: "#ffffff",
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  cursor: eliminandoGastoId ? "wait" : "pointer",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <Trash2 size={15} />
+                {eliminandoGastoId ? "Eliminando..." : "Eliminar gasto"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* MODAL 1: REGISTRAR GASTO COMPARTIDO (HU10 & HU11)                         */}
       {/* ========================================================================= */}
@@ -2494,30 +2657,52 @@ function Dashboard() {
             </div>
 
             {dwelling?.administradorId === user?.uid && (
-              <button
-                type="button"
-                onClick={() => {
-                  handleOpenGastoModal(selectedExpenseForDetail);
-                  setSelectedExpenseForDetail(null);
-                }}
-                style={{
-                  alignSelf: "flex-start",
-                  background: "#fffaf0",
-                  border: "1px solid #f0d9a6",
-                  color: "#9a6700",
-                  padding: "7px 11px",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  marginBottom: "16px",
-                }}
-              >
-                <Pencil size={13} /> Editar gasto
-              </button>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenGastoModal(selectedExpenseForDetail);
+                    setSelectedExpenseForDetail(null);
+                  }}
+                  style={{
+                    alignSelf: "flex-start",
+                    background: "#fffaf0",
+                    border: "1px solid #f0d9a6",
+                    color: "#9a6700",
+                    padding: "7px 11px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                  }}
+                >
+                  <Pencil size={13} /> Editar gasto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSolicitarEliminarGasto(selectedExpenseForDetail)}
+                  disabled={eliminandoGastoId === selectedExpenseForDetail.id}
+                  style={{
+                    alignSelf: "flex-start",
+                    background: "#fff5f5",
+                    border: "1px solid #feb2b2",
+                    color: "#b91c1c",
+                    padding: "7px 11px",
+                    borderRadius: "6px",
+                    cursor: eliminandoGastoId === selectedExpenseForDetail.id ? "wait" : "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                  }}
+                >
+                  <Trash2 size={13} /> {eliminandoGastoId === selectedExpenseForDetail.id ? "Eliminando..." : "Eliminar gasto"}
+                </button>
+              </div>
             )}
 
             <div style={{ marginBottom: "20px" }}>
