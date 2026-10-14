@@ -7,6 +7,7 @@ interface Props {
     expenses: Expense[]; // los mismos gastos que ya carga el Dashboard
     payments?: DebtPayment[]; // los mismos pagos de deudas que ya carga el Dashboard
     userId: string;
+    onVerDesglose?: () => void; // HU16: abre el desglose de movimientos del saldo
 }
 
 const formatCOP = (valor: number) =>
@@ -28,7 +29,7 @@ const MENSAJE_ESTADO: Record<ResumenSaldo['estado'], string> = {
  * actualiza solo cuando se registra, edita o elimina un gasto (criterio 5)
  * y nunca muestra una cifra distinta a la del resto de la pantalla.
  */
-export default function SaldoConsolidadoCard({ expenses, payments = [], userId }: Props) {
+export default function SaldoConsolidadoCard({ expenses, payments = [], userId, onVerDesglose }: Props) {
     const resumen = useMemo(
         () => calcularResumenSaldo(expenses, userId, payments),
         [expenses, payments, userId]
@@ -69,6 +70,13 @@ export default function SaldoConsolidadoCard({ expenses, payments = [], userId }
 
             <small>Calculado con {resumen.cantidadGastos} gasto(s) registrados.</small>
 
+            {onVerDesglose && (
+                <div style={{ marginTop: '0.75rem' }}>
+                    <button type="button" onClick={onVerDesglose}>
+                        Ver desglose de movimientos
+                    </button>
+                </div>
+            )}
         </section>
     );
 }

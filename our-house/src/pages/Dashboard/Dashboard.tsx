@@ -67,6 +67,7 @@ import type { Task } from "../../models/Task";
 import type { Debt, DebtPayment } from "../../models/Debt";
 import "./Dashboard.css";
 import SaldoConsolidadoCard from "../../components/SaldoConsolidadoCard";
+import DesgloseMovimientosModal, { type ObjetivoDesglose } from "../../components/DesgloseMovimientosModal";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -90,6 +91,8 @@ function Dashboard() {
   const [filtroParticipanteDeuda, setFiltroParticipanteDeuda] = useState<"todas" | "mis_deudas" | "mis_acreencias">("todas");
   const [modalPagoOpen, setModalPagoOpen] = useState(false);
   const [selectedDebtForPayment, setSelectedDebtForPayment] = useState<Debt | null>(null);
+  // HU16: desglose de movimientos de una deuda o del saldo consolidado
+  const [desgloseObjetivo, setDesgloseObjetivo] = useState<ObjetivoDesglose | null>(null);
 
   // Filters State (HU12)
   const [busqueda, setBusqueda] = useState("");
@@ -223,6 +226,12 @@ function Dashboard() {
     if (!user) return 0;
     return saldosConsolidados[user.uid] || 0;
   }, [saldosConsolidados, user]);
+
+  // HU16: nombres de los integrantes por id para el desglose
+  const nombresPorId = useMemo(
+    () => Object.fromEntries(members.map((m) => [m.id, m.nombre])) as Record<string, string>,
+    [members]
+  );
 
   // Total household expenses
   const totalGastosMes = useMemo(() => {
@@ -1151,7 +1160,12 @@ function Dashboard() {
 
           {/* HU15: Saldo consolidado individual */}
           <article className="dashboard-stat">
-            <SaldoConsolidadoCard expenses={expenses} payments={payments} userId={user?.uid ?? ""} />
+            <SaldoConsolidadoCard
+              expenses={expenses}
+              payments={payments}
+              userId={user?.uid ?? ""}
+              onVerDesglose={() => setDesgloseObjetivo({ tipo: "saldo" })}
+            />
           </article>
 
           {/* Card: Gastos Totales */}
@@ -1918,6 +1932,23 @@ function Dashboard() {
                             )}
                           </td>
                           <td style={{ textAlign: "center" }}>
+                            <button
+                              type="button"
+                              onClick={() => setDesgloseObjetivo({ tipo: "deuda", deuda: d })}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "var(--dashboard-green)",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                textDecoration: "underline",
+                                marginRight: "8px",
+                              }}
+                              title="Ver los movimientos que originaron esta deuda"
+                            >
+                              Ver desglose
+                            </button>
                             {d.estado !== "liquidada" ? (
                               <button
                                 type="button"
@@ -2815,6 +2846,19 @@ function Dashboard() {
             setSelectedDebtForPayment(null);
           }}
           onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* HU16: desglose de movimientos de una deuda o del saldo consolidado */}
+      {desgloseObjetivo && (
+        <DesgloseMovimientosModal
+          objetivo={desgloseObjetivo}
+          expenses={expenses}
+          payments={payments}
+          userId={user?.uid ?? ""}
+          saldoMostrado={userSaldo}
+          nombres={nombresPorId}
+          onClose={() => setDesgloseObjetivo(null)}
         />
       )}
     </main>
