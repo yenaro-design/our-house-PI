@@ -1151,7 +1151,7 @@ function Dashboard() {
 
           {/* HU15: Saldo consolidado individual */}
           <article className="dashboard-stat">
-            <SaldoConsolidadoCard expenses={expenses} userId={user?.uid ?? ""} />
+            <SaldoConsolidadoCard expenses={expenses} payments={payments} userId={user?.uid ?? ""} />
           </article>
 
           {/* Card: Gastos Totales */}

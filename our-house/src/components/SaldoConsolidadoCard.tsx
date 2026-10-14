@@ -1,9 +1,11 @@
 ﻿import { useMemo } from 'react';
 import type { Expense } from '../models/Expense';
+import type { DebtPayment } from '../models/Debt';
 import { calcularResumenSaldo, type ResumenSaldo } from '../services/saldoService';
 
 interface Props {
     expenses: Expense[]; // los mismos gastos que ya carga el Dashboard
+    payments?: DebtPayment[]; // los mismos pagos de deudas que ya carga el Dashboard
     userId: string;
 }
 
@@ -26,8 +28,11 @@ const MENSAJE_ESTADO: Record<ResumenSaldo['estado'], string> = {
  * actualiza solo cuando se registra, edita o elimina un gasto (criterio 5)
  * y nunca muestra una cifra distinta a la del resto de la pantalla.
  */
-export default function SaldoConsolidadoCard({ expenses, userId }: Props) {
-    const resumen = useMemo(() => calcularResumenSaldo(expenses, userId), [expenses, userId]);
+export default function SaldoConsolidadoCard({ expenses, payments = [], userId }: Props) {
+    const resumen = useMemo(
+        () => calcularResumenSaldo(expenses, userId, payments),
+        [expenses, payments, userId]
+    );
 
     const color =
         resumen.estado === 'deuda' ? '#b91c1c' : resumen.estado === 'favor' ? '#15803d' : 'inherit';
@@ -54,9 +59,16 @@ export default function SaldoConsolidadoCard({ expenses, userId }: Props) {
 
                 <dt>Total de tus cuotas</dt>
                 <dd>{formatCOP(resumen.totalCuotas)}</dd>
+
+                <dt>Pagos que realizaste</dt>
+                <dd>{formatCOP(resumen.pagosRealizados)}</dd>
+
+                <dt>Pagos que recibiste</dt>
+                <dd>{formatCOP(resumen.pagosRecibidos)}</dd>
             </dl>
 
             <small>Calculado con {resumen.cantidadGastos} gasto(s) registrados.</small>
+
         </section>
     );
 }
