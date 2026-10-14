@@ -1,4 +1,5 @@
 ﻿import { useMemo } from 'react';
+import { ArrowUpRight, CheckCircle2, ChevronDown, HandCoins, Receipt, WalletCards } from 'lucide-react';
 import type { Expense } from '../models/Expense';
 import type { DebtPayment } from '../models/Debt';
 import { calcularResumenSaldo, type ResumenSaldo } from '../services/saldoService';
@@ -35,48 +36,63 @@ export default function SaldoConsolidadoCard({ expenses, payments = [], userId, 
         [expenses, payments, userId]
     );
 
-    const color =
-        resumen.estado === 'deuda' ? '#b91c1c' : resumen.estado === 'favor' ? '#15803d' : 'inherit';
+    const estadoClase = `saldo-consolidado-card-${resumen.estado}`;
+    const iconoEstado =
+        resumen.estado === 'deuda' ? <ArrowUpRight size={16} /> :
+        resumen.estado === 'favor' ? <HandCoins size={16} /> :
+        <CheckCircle2 size={16} />;
 
     return (
-        <section aria-labelledby="saldo-titulo" className="saldo-consolidado-card">
-            <h3 id="saldo-titulo">Mi saldo consolidado</h3>
-
-            <p style={{ fontSize: '1.75rem', fontWeight: 700, color, margin: '0.25rem 0' }}>
-                {resumen.saldo < 0 ? '-' : ''}
-                {formatCOP(Math.abs(resumen.saldo))}
-            </p>
-            <p>{MENSAJE_ESTADO[resumen.estado]}</p>
-
-            <dl>
-                <dt>Deudas pendientes</dt>
-                <dd>{formatCOP(resumen.deudaPendiente)}</dd>
-
-                <dt>Valores a favor</dt>
-                <dd>{formatCOP(resumen.valorAFavor)}</dd>
-
-                <dt>Total que pagaste</dt>
-                <dd>{formatCOP(resumen.totalPagado)}</dd>
-
-                <dt>Total de tus cuotas</dt>
-                <dd>{formatCOP(resumen.totalCuotas)}</dd>
-
-                <dt>Pagos que realizaste</dt>
-                <dd>{formatCOP(resumen.pagosRealizados)}</dd>
-
-                <dt>Pagos que recibiste</dt>
-                <dd>{formatCOP(resumen.pagosRecibidos)}</dd>
-            </dl>
-
-            <small>Calculado con {resumen.cantidadGastos} gasto(s) registrados.</small>
-
-            {onVerDesglose && (
-                <div style={{ marginTop: '0.75rem' }}>
-                    <button type="button" onClick={onVerDesglose}>
-                        Ver desglose de movimientos
-                    </button>
+        <section aria-labelledby="saldo-titulo" className={`saldo-consolidado-card ${estadoClase}`}>
+            <div className="saldo-consolidado-card-header">
+                <div>
+                    <span className="saldo-consolidado-card-kicker">Resumen personal</span>
+                    <h3 id="saldo-titulo">Mi saldo consolidado</h3>
                 </div>
-            )}
+                <span className="saldo-consolidado-card-icon" aria-hidden="true"><WalletCards size={19} /></span>
+            </div>
+
+            <div className="saldo-consolidado-card-hero">
+                <span className="saldo-consolidado-card-label">Saldo actual</span>
+                <strong>
+                    {resumen.saldo < 0 ? '-' : ''}
+                    {formatCOP(Math.abs(resumen.saldo))}
+                </strong>
+                <span className="saldo-consolidado-card-status">{iconoEstado}{MENSAJE_ESTADO[resumen.estado]}</span>
+            </div>
+
+            <div className="saldo-consolidado-card-balance-grid">
+                <div className="saldo-consolidado-card-balance saldo-consolidado-card-balance-debt">
+                    <span><Receipt size={15} /> Deudas pendientes</span>
+                    <strong>{formatCOP(resumen.deudaPendiente)}</strong>
+                </div>
+                <div className="saldo-consolidado-card-balance saldo-consolidado-card-balance-credit">
+                    <span><HandCoins size={15} /> Valores a favor</span>
+                    <strong>{formatCOP(resumen.valorAFavor)}</strong>
+                </div>
+            </div>
+
+            <details className="saldo-consolidado-card-dropdown">
+                <summary>
+                    <span>Ver detalle de pagos y cuotas</span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                </summary>
+                <dl className="saldo-consolidado-card-details">
+                    <div><dt>Total que pagaste</dt><dd>{formatCOP(resumen.totalPagado)}</dd></div>
+                    <div><dt>Total de tus cuotas</dt><dd>{formatCOP(resumen.totalCuotas)}</dd></div>
+                    <div><dt>Pagos que realizaste</dt><dd>{formatCOP(resumen.pagosRealizados)}</dd></div>
+                    <div><dt>Pagos que recibiste</dt><dd>{formatCOP(resumen.pagosRecibidos)}</dd></div>
+                </dl>
+            </details>
+
+            <div className="saldo-consolidado-card-footer">
+                <small>Calculado con {resumen.cantidadGastos} {resumen.cantidadGastos === 1 ? 'gasto registrado' : 'gastos registrados'}.</small>
+                {onVerDesglose && (
+                    <button type="button" className="saldo-consolidado-card-action" onClick={onVerDesglose}>
+                        Ver movimientos <ArrowUpRight size={15} />
+                    </button>
+                )}
+            </div>
         </section>
     );
 }

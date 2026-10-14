@@ -100,25 +100,21 @@ export default function DesgloseMovimientosModal({
 
                 {desgloseSaldo && (
                     <>
-                        <p style={{ margin: '0 0 4px' }}>Saldo consolidado actual</p>
-                        <p
-                            style={{
-                                fontSize: '1.75rem',
-                                fontWeight: 700,
-                                margin: '0 0 8px',
-                                color: colorDe(desgloseSaldo.saldoMostrado),
-                            }}
-                        >
-                            {formatConSigno(desgloseSaldo.saldoMostrado)}
-                        </p>
-                        <p style={{ margin: '0 0 16px', fontSize: 13 }}>
+                        <div className="desglose-summary">
+                            <span className="desglose-summary-label">Saldo consolidado actual</span>
+                            <strong style={{ color: colorDe(desgloseSaldo.saldoMostrado) }}>
+                                {formatConSigno(desgloseSaldo.saldoMostrado)}
+                            </strong>
+                            <span className="desglose-summary-caption">Resultado de todos tus gastos y pagos registrados</span>
+                        </div>
+                        <p className="desglose-explanation">
                             En cada gasto se suma lo que pagaste y se resta la cuota que te correspondía; los
                             pagos entre integrantes suman si tú pagaste y restan si los recibiste. Al acumular
                             todos los movimientos obtienes tu saldo.
                         </p>
 
                         {desgloseSaldo.movimientos.length === 0 ? (
-                            <p>Aún no hay movimientos que afecten tu saldo.</p>
+                            <p className="desglose-empty">Aún no hay movimientos que afecten tu saldo.</p>
                         ) : (
                             <div className="dashboard-table-container">
                                 <table className="dashboard-table">
@@ -166,10 +162,7 @@ export default function DesgloseMovimientosModal({
                             </div>
                         )}
 
-                        <p
-                            role="status"
-                            style={{ marginTop: 14, fontSize: 13, color: desgloseSaldo.coincide ? VERDE : ROJO }}
-                        >
+                        <p role="status" className={`desglose-status ${desgloseSaldo.coincide ? 'desglose-status-ok' : 'desglose-status-warning'}`}>
                             {desgloseSaldo.coincide
                                 ? '✓ La suma de los movimientos coincide con tu saldo consolidado.'
                                 : '⚠ La suma de los movimientos no coincide con tu saldo consolidado. Recarga la página; si persiste, avisa al equipo.'}
@@ -179,21 +172,14 @@ export default function DesgloseMovimientosModal({
 
                 {desgloseDeuda && (
                     <>
-                        <p style={{ margin: '0 0 4px' }}>
+                        <p className="desglose-debt-context">
                             <strong>{desgloseDeuda.deuda.deudorNombre}</strong> le debe a{' '}
                             <strong>{desgloseDeuda.deuda.acreedorNombre}</strong>
                         </p>
-                        <p
-                            style={{
-                                fontSize: '1.75rem',
-                                fontWeight: 700,
-                                margin: '0 0 8px',
-                                color: desgloseDeuda.saldoCalculado > 0 ? ROJO : VERDE,
-                            }}
-                        >
+                        <p className="desglose-debt-amount" style={{ color: desgloseDeuda.saldoCalculado > 0 ? ROJO : VERDE }}>
                             {formatCOP(desgloseDeuda.saldoCalculado)}
                         </p>
-                        <p style={{ margin: '0 0 16px', fontSize: 13 }}>
+                        <p className="desglose-explanation">
                             {desgloseDeuda.deuda.deudorId === userId
                                 ? 'Esta cuota es parte de lo que se descuenta de tu saldo consolidado.'
                                 : desgloseDeuda.deuda.acreedorId === userId
@@ -246,10 +232,7 @@ export default function DesgloseMovimientosModal({
                             </table>
                         </div>
 
-                        <p
-                            role="status"
-                            style={{ marginTop: 14, fontSize: 13, color: desgloseDeuda.coincide ? VERDE : ROJO }}
-                        >
+                        <p role="status" className={`desglose-status ${desgloseDeuda.coincide ? 'desglose-status-ok' : 'desglose-status-warning'}`}>
                             {desgloseDeuda.coincide
                                 ? '✓ Los movimientos coinciden con lo registrado en la deuda y en el gasto de origen.'
                                 : '⚠ Los movimientos no coinciden con lo registrado en la deuda. Recarga la página; si persiste, avisa al equipo.'}
