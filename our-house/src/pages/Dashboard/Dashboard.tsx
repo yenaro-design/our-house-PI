@@ -81,6 +81,7 @@ function Dashboard() {
   const [modalTareaOpen, setModalTareaOpen] = useState(false);
   const [modalIngresoOpen, setModalIngresoOpen] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<Expense | null>(null);
+  const [expensePendingDeletion, setExpensePendingDeletion] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Feedback & Copy State
@@ -350,13 +351,17 @@ function Dashboard() {
     }
   };
 
-  const handleEliminarGasto = async (gasto: Expense) => {
+  const handleSolicitarEliminarGasto = (gasto: Expense) => {
     if (!dwelling || !user || dwelling.administradorId !== user.uid) return;
+    setActionError(null);
+    setExpensePendingDeletion(gasto);
+  };
 
-    const confirmado = window.confirm(
-      `¿Confirmas eliminar el gasto "${gasto.concepto}"? Esta acción actualizará los saldos de la vivienda.`
-    );
-    if (!confirmado) return;
+  const handleEliminarGasto = async () => {
+    if (!dwelling || !user || !expensePendingDeletion || dwelling.administradorId !== user.uid) return;
+
+    const gasto = expensePendingDeletion;
+    setExpensePendingDeletion(null);
 
     try {
       setEliminandoGastoId(gasto.id);
@@ -1416,7 +1421,7 @@ function Dashboard() {
                             {dwelling?.administradorId === user?.uid && (
                               <button
                                 type="button"
-                                onClick={() => handleEliminarGasto(g)}
+                                onClick={() => handleSolicitarEliminarGasto(g)}
                                 disabled={eliminandoGastoId === g.id}
                                 style={{
                                   background: "#fff5f5",
@@ -1737,6 +1742,101 @@ function Dashboard() {
         )}
       </section>
 
+      {expensePendingDeletion && (
+        <div
+          className="dashboard-modal-backdrop"
+          onClick={() => {
+            if (!eliminandoGastoId) setExpensePendingDeletion(null);
+          }}
+        >
+          <div
+            className="dashboard-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-expense-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "460px" }}
+          >
+            <div className="dashboard-modal-header">
+              <h3 id="delete-expense-title" className="dashboard-modal-title">
+                <Trash2 size={20} color="#b91c1c" />
+                Confirmar eliminación
+              </h3>
+              <button
+                type="button"
+                className="dashboard-modal-close"
+                onClick={() => setExpensePendingDeletion(null)}
+                disabled={Boolean(eliminandoGastoId)}
+                aria-label="Cerrar confirmación"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "10px",
+                padding: "14px",
+                background: "#fff5f5",
+                border: "1px solid #fecaca",
+                borderRadius: "8px",
+                color: "#7f1d1d",
+                fontSize: "13px",
+                lineHeight: 1.5,
+              }}
+            >
+              <AlertCircle size={18} style={{ flexShrink: 0, marginTop: "1px" }} />
+              <span>
+                Se eliminará el gasto <strong>"{expensePendingDeletion.concepto}"</strong> por un total de {formatCOP(expensePendingDeletion.monto)}. Esta acción también actualizará los saldos de la vivienda.
+              </span>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+              <button
+                type="button"
+                onClick={() => setExpensePendingDeletion(null)}
+                disabled={Boolean(eliminandoGastoId)}
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #cbd5e1",
+                  color: "var(--dashboard-ink)",
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleEliminarGasto()}
+                disabled={Boolean(eliminandoGastoId)}
+                style={{
+                  background: "#b91c1c",
+                  border: "1px solid #b91c1c",
+                  color: "#ffffff",
+                  padding: "10px 16px",
+                  borderRadius: "8px",
+                  cursor: eliminandoGastoId ? "wait" : "pointer",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <Trash2 size={15} />
+                {eliminandoGastoId ? "Eliminando..." : "Eliminar gasto"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* MODAL 1: REGISTRAR GASTO COMPARTIDO (HU10 & HU11)                         */}
       {/* ========================================================================= */}
@@ -2029,7 +2129,7 @@ function Dashboard() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleEliminarGasto(selectedExpenseForDetail)}
+                  onClick={() => handleSolicitarEliminarGasto(selectedExpenseForDetail)}
                   disabled={eliminandoGastoId === selectedExpenseForDetail.id}
                   style={{
                     alignSelf: "flex-start",
