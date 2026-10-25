@@ -7,7 +7,7 @@ import {
     updateDoc,
     where,
 } from 'firebase/firestore';
-import { db, isFirebasePersistenceAvailable } from '../firebase/config';
+import { db } from '../firebase/config';
 import type { Task } from '../models/Task';
 
 const TASKS_STORAGE_KEY = 'our_house_tasks';
@@ -46,7 +46,10 @@ export async function obtenerTareasPorVivienda(viviendaId: string): Promise<Task
         if (!snapshot.empty) {
             const remoteTasks: Task[] = [];
             snapshot.forEach((d) => {
-                remoteTasks.push({ id: d.id, ...d.data() } as Task);
+                const data = d.data();
+                const completada = Boolean(data.completada || data.estado === 'realizada' || data.estado === 'completada');
+                const estado = data.estado || (completada ? 'realizada' : 'pendiente');
+                remoteTasks.push({ id: d.id, ...data, completada, estado } as Task);
             });
             const local = getLocalTasks().filter((t) => t.viviendaId === viviendaId);
             const map = new Map<string, Task>();
@@ -210,12 +213,12 @@ export async function obtenerTareasPendientesPorUsuario(
     userId: string
 ): Promise<Task[]> {
     const todas = await obtenerTareasPorVivienda(viviendaId);
-    return todas.filter((t) => t.responsableId === userId && !t.completada);
+    return todas.filter((t) => {
+        const completada = Boolean(t.completada || t.estado === 'realizada' || t.estado === 'completada');
+        return t.responsableId === userId && !completada;
+    });
 }
 
-/**
- * Crear nueva tarea doméstica
- */
 export async function crearTarea(datos: {
     viviendaId: string;
     titulo: string;
@@ -252,12 +255,15 @@ export async function crearTarea(datos: {
         responsableNombre: datos.responsableNombre || 'Integrante',
         fechaVencimiento: cleanFecha,
         completada: false,
+        estado: 'pendiente',
         createdAt: new Date().toISOString(),
     };
 
-    if (isFirebasePersistenceAvailable()) {
+    try {
         const docRef = doc(db, 'tasks', taskId);
         await setDoc(docRef, nuevaTarea);
+    } catch (err) {
+        console.warn('Aviso al guardar tarea en Firestore:', err);
     }
 
     const local = getLocalTasks();
@@ -267,23 +273,112 @@ export async function crearTarea(datos: {
     return nuevaTarea;
 }
 
-/**
- * Marcar tarea como completada o pendiente
- */
 export async function toggleCompletarTarea(taskId: string, completada: boolean): Promise<void> {
+    const estado = completada ? 'realizada' : 'pendiente';
+    const fechaCompletada = completada ? new Date().toISOString().split('T')[0] : '';
     const local = getLocalTasks();
     const idx = local.findIndex((t) => t.id === taskId);
     if (idx !== -1) {
         local[idx].completada = completada;
+        local[idx].estado = estado;
+        if (completada) local[idx].fechaCompletada = fechaCompletada;
         saveLocalTasks(local);
     }
 
     try {
         const docRef = doc(db, 'tasks', taskId);
-        await updateDoc(docRef, { completada });
+        await setDoc(
+            docRef,
+            {
+                ...(idx !== -1 ? local[idx] : {}),
+                completada,
+                estado,
+                fechaCompletada,
+            },
+            { merge: true }
+        );
     } catch (err) {
         console.warn('Aviso al actualizar tarea en Firestore:', err);
     }
+}
+
+export interface TaskFiltroCriterios {
+    estado?: 'pendientes' | 'completadas' | 'todas';
+    responsableId?: string;
+    soloAsignadasAUsuarioId?: string;
+}
+
+export function filtrarTareas(tareas: Task[], criterios: TaskFiltroCriterios): Task[] {
+    return tareas.filter((t) => {
+        const completada = Boolean(t.completada || t.estado === 'realizada' || t.estado === 'completada');
+        if (criterios.estado === 'pendientes' && completada) return false;
+        if (criterios.estado === 'completadas' && !completada) return false;
+        if (criterios.soloAsignadasAUsuarioId && t.responsableId !== criterios.soloAsignadasAUsuarioId) return false;
+        if (criterios.responsableId && criterios.responsableId !== 'todos' && t.responsableId !== criterios.responsableId) return false;
+        return true;
+    });
+}
+
+export async function completarTarea(taskId: string): Promise<Task> {
+    const fechaCompletada = new Date().toISOString().split('T')[0];
+    const local = getLocalTasks();
+    const idx = local.findIndex((t) => t.id === taskId);
+    let tareaActualizada: Task;
+
+    if (idx !== -1) {
+        local[idx].completada = true;
+        local[idx].estado = 'realizada';
+        local[idx].fechaCompletada = fechaCompletada;
+        tareaActualizada = { ...local[idx] };
+        saveLocalTasks(local);
+    } else {
+        tareaActualizada = {
+            id: taskId,
+            viviendaId: '',
+            titulo: '',
+            responsableId: '',
+            fechaVencimiento: '',
+            completada: true,
+            estado: 'realizada',
+            fechaCompletada,
+        };
+    }
+
+    const docRef = doc(db, 'tasks', taskId);
+    try {
+        await updateDoc(docRef, {
+            completada: true,
+            estado: 'realizada',
+            fechaCompletada,
+        });
+    } catch (err: unknown) {
+        const code =
+            typeof err === 'object' && err !== null && 'code' in err
+                ? String((err as { code?: unknown }).code)
+                : '';
+        const isPermission =
+            code === 'permission-denied' ||
+            (err instanceof Error && err.message.includes('permissions'));
+
+        if (isPermission) {
+            await updateDoc(docRef, { completada: true });
+        } else if (code === 'not-found') {
+            await setDoc(
+                docRef,
+                {
+                    ...(idx !== -1 ? local[idx] : {}),
+                    completada: true,
+                    estado: 'realizada',
+                    fechaCompletada,
+                },
+                { merge: true }
+            );
+        } else {
+            throw err;
+        }
+    }
+
+    return tareaActualizada;
 }
 
 export interface DueDateBadgeInfo {
