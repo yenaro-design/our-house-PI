@@ -23,6 +23,14 @@ jobs:
   test-and-build:
     name: Test and build
     runs-on: ubuntu-latest
+    env:
+      VITE_FIREBASE_API_KEY: test-api-key
+      VITE_FIREBASE_AUTH_DOMAIN: test.invalid
+      VITE_FIREBASE_PROJECT_ID: test-project
+      VITE_FIREBASE_STORAGE_BUCKET: test.invalid
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+      VITE_FIREBASE_APP_ID: '1:000000000000:web:test'
+      VITE_FIREBASE_MEASUREMENT_ID: G-TEST
     defaults:
       run:
         working-directory: our-house
