@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
     CheckSquare,
     Square,
@@ -93,15 +93,6 @@ export default function ConsultarTareasPendientes({
             setFiltroResponsable('todos');
         }
     };
-
-    // Sincronizar vista si cambia desde props (navegación externa)
-    useEffect(() => {
-        if (initialView === 'completadas') {
-            seleccionarEstado('completadas');
-        } else if (initialView === 'pendientes') {
-            seleccionarEstado('pendientes');
-        }
-    }, [initialView]);
 
     // 1. Filtrado de tareas pertenecientes a la vivienda del usuario (Criterio 2)
     const tareasVivienda = useMemo(() => {

@@ -2498,6 +2498,7 @@ function Dashboard() {
         {activeTab === "tareas" && (
           <section className="dashboard-tab-panel">
             <ConsultarTareasPendientes
+              key={vistaTareasInicial}
               viviendaId={dwelling ? dwelling.id : ""}
               viviendaNombre={dwelling?.nombre}
               currentUserId={user?.uid}
