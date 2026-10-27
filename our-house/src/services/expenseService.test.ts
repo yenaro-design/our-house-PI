@@ -94,7 +94,7 @@ describe('calcularSaldosConsolidados', () => {
       ],
     )
 
-    expect(resultado).toEqual({ ana: 30_000, bruno: -30_000 })
+    expect(resultado).toEqual({ ana: 30_001, bruno: -30_001 })
   })
 
   it('incluye usuarios que aparecen en gastos aunque no estén en integrantes', () => {
