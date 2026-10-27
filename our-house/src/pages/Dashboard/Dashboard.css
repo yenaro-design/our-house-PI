@@ -984,3 +984,30 @@
   background: #f1f3f4;
   color: #5f6368;
 }
+/* ==========================================================================
+   Tab Panel Smooth Transitions & Polish
+   ========================================================================== */
+.dashboard-tab-panel {
+  margin-top: 10px;
+  animation: dashboardFadeIn 0.16s ease-out;
+}
+
+@keyframes dashboardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboard-nav-link {
+  transition: color 0.15s ease;
+  user-select: none;
+}
+
+.dashboard-nav-link:active {
+  transform: translateY(1px);
+}

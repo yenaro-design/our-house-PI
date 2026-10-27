@@ -148,13 +148,23 @@ function Dashboard() {
     const tabs = ["resumen", "gastos", "deudas", "integrantes", "tareas"] as const;
     const syncTabFromHash = () => {
       const requestedTab = window.location.hash.slice(1) as (typeof tabs)[number];
-      setActiveTab(tabs.includes(requestedTab) ? requestedTab : "resumen");
+      if (requestedTab && tabs.includes(requestedTab)) {
+        setActiveTab(requestedTab);
+      }
     };
 
     syncTabFromHash();
     window.addEventListener("hashchange", syncTabFromHash);
     return () => window.removeEventListener("hashchange", syncTabFromHash);
   }, []);
+
+  const cambiarTab = (tab: "resumen" | "gastos" | "deudas" | "integrantes" | "tareas") => {
+    setActiveTab(tab);
+    if (window.location.hash.slice(1) !== tab) {
+      window.history.replaceState(null, "", `#${tab}`);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Fetch dwelling data and related entities
   useEffect(() => {
@@ -850,7 +860,7 @@ function Dashboard() {
           <button
             type="button"
             className={`dashboard-nav-link ${activeTab === "resumen" ? "dashboard-nav-link-active" : ""}`}
-            onClick={() => setActiveTab("resumen")}
+            onClick={() => cambiarTab("resumen")}
             style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Resumen
@@ -858,7 +868,7 @@ function Dashboard() {
           <button
             type="button"
             className={`dashboard-nav-link ${activeTab === "gastos" ? "dashboard-nav-link-active" : ""}`}
-            onClick={() => setActiveTab("gastos")}
+            onClick={() => cambiarTab("gastos")}
             style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Gastos ({expenses.length})
@@ -866,7 +876,7 @@ function Dashboard() {
           <button
             type="button"
             className={`dashboard-nav-link ${activeTab === "deudas" ? "dashboard-nav-link-active" : ""}`}
-            onClick={() => setActiveTab("deudas")}
+            onClick={() => cambiarTab("deudas")}
             style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Deudas y Pagos ({debts.filter((d) => d.estado !== "liquidada").length})
@@ -874,7 +884,7 @@ function Dashboard() {
           <button
             type="button"
             className={`dashboard-nav-link ${activeTab === "integrantes" ? "dashboard-nav-link-active" : ""}`}
-            onClick={() => setActiveTab("integrantes")}
+            onClick={() => cambiarTab("integrantes")}
             style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Integrantes ({members.length})
@@ -882,7 +892,7 @@ function Dashboard() {
           <button
             type="button"
             className={`dashboard-nav-link ${activeTab === "tareas" ? "dashboard-nav-link-active" : ""}`}
-            onClick={() => setActiveTab("tareas")}
+            onClick={() => cambiarTab("tareas")}
             style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Tareas ({tasks.filter((t) => !t.completada).length})
@@ -1058,83 +1068,8 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Dwelling Status / Welcome Bar */}
-        {dwelling ? (
-          <div
-            style={{
-              background: "#ffffff",
-              padding: "24px 28px",
-              borderRadius: "16px",
-              border: "1px solid #dce8e2",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.03)",
-              marginBottom: "32px",
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "20px",
-            }}
-          >
-            <div>
-              <p style={{ margin: "0 0 4px", fontSize: "12px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "var(--dashboard-green)" }}>
-                Hogar Activo
-              </p>
-              <h1 style={{ margin: "0 0 6px", fontSize: "28px", color: "var(--dashboard-ink)" }}>
-                {dwelling.nombre}
-              </h1>
-              <p style={{ margin: 0, fontSize: "14px", color: "var(--dashboard-muted)" }}>
-                {dwelling.direccion || "Dirección no especificada"} · {members.length} {members.length === 1 ? "integrante" : "integrantes"}
-              </p>
-            </div>
-
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
-              {/* Código de invitación con 1-click copy */}
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  background: "#f4f8f6",
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                  border: "1px solid #c8dcd2",
-                }}
-              >
-                <span style={{ fontSize: "12px", color: "#4f665c", fontWeight: 600 }}>Código:</span>
-                <strong style={{ fontFamily: "monospace", fontSize: "16px", letterSpacing: "2px", color: "var(--dashboard-green)" }}>
-                  {dwelling.codigoInvitacion}
-                </strong>
-                <button
-                  type="button"
-                  onClick={() => handleCopyCode(dwelling.codigoInvitacion)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--dashboard-green)",
-                    padding: "4px",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                  title="Copiar código de invitación"
-                >
-                  {copiedCode ? <Check size={16} color="#15803d" /> : <Copy size={16} />}
-                </button>
-              </div>
-
-              {/* Botón Registrar Gasto (HU10) */}
-              <button
-                type="button"
-                className="dashboard-primary-action"
-                onClick={() => handleOpenGastoModal()}
-                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-              >
-                <Plus size={16} /> Registrar gasto
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* Empty State: Usuario sin vivienda vinculada */
+        {/* Empty State: Usuario sin vivienda vinculada */}
+        {!dwelling && (
           <div
             style={{
               background: "#ffffff",
@@ -1206,320 +1141,529 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Summary Stats Cards */}
-        <div className="dashboard-stats" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-          {/* Card: Tu Saldo */}
-          <article className="dashboard-stat dashboard-stat-featured">
-            <div className="dashboard-stat-topline">
-              <span>Tu Saldo Individual</span>
-              <span
+        {/* Barra de Contexto Compacta para Apartados Específicos (Gastos, Deudas, Integrantes, Tareas) */}
+        {activeTab !== "resumen" && dwelling && (
+          <div
+            className="dashboard-context-bar"
+            style={{
+              background: "#ffffff",
+              padding: "12px 20px",
+              borderRadius: "12px",
+              border: "1px solid #dce8e2",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+              marginBottom: "20px",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Home size={18} color="var(--dashboard-green)" />
+                <strong style={{ fontSize: "15px", color: "var(--dashboard-ink)" }}>{dwelling.nombre}</strong>
+                <span style={{ color: "var(--dashboard-muted)", fontSize: "13px" }}>
+                  ({members.length} {members.length === 1 ? "integrante" : "integrantes"})
+                </span>
+              </div>
+
+              <span style={{ color: "#cbd5e1" }}>·</span>
+
+              <div
                 style={{
-                  width: "10px",
-                  height: "10px",
-                  borderRadius: "50%",
-                  background: userSaldo > 0 ? "#15803d" : userSaldo < 0 ? "#b91c1c" : "#94a3b8",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background: "#f4f8f6",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #c8dcd2",
+                  fontSize: "12px",
                 }}
-              />
-            </div>
-            <strong style={{ color: userSaldo > 0 ? "#15803d" : userSaldo < 0 ? "#b91c1c" : "inherit" }}>
-              {userSaldo > 0 ? `+${formatCOP(userSaldo)}` : userSaldo < 0 ? `-${formatCOP(Math.abs(userSaldo))}` : "$0"}
-            </strong>
-            <p>
-              {userSaldo > 0 ? "A tu favor (te deben)" : userSaldo < 0 ? "En contra (debes pagar)" : "Al día con la vivienda"}
-            </p>
-          </article>
-
-          {/* HU15: Saldo consolidado individual */}
-          <article className="dashboard-stat">
-            <SaldoConsolidadoCard
-              expenses={expenses}
-              payments={payments}
-              userId={user?.uid ?? ""}
-              onVerDesglose={() => setDesgloseObjetivo({ tipo: "saldo" })}
-            />
-          </article>
-
-          {/* Card: Gastos Totales */}
-          <article className="dashboard-stat">
-            <div className="dashboard-stat-topline">
-              <span>Total Gastos del Hogar</span>
-              <span className="dashboard-stat-icon">$</span>
-            </div>
-            <strong>{formatCOP(totalGastosMes)}</strong>
-            <p>{expenses.length} movimientos registrados</p>
-          </article>
-
-          {/* Card: Tu Ingreso Mensual Registrado (HU04) */}
-          <article className="dashboard-stat">
-            <div className="dashboard-stat-topline">
-              <span>Tu Ingreso Mensual</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setNuevoIngresoInput(String(userProfile?.ingresoMensual || ""));
-                  setActionError(null);
-                  setModalIngresoOpen(true);
-                }}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--dashboard-green)", fontSize: "11px", fontWeight: 700 }}
               >
-                Modificar
-              </button>
-            </div>
-            <strong>{formatCOP(userProfile?.ingresoMensual || 0)}</strong>
-            <p>Usado en el reparto proporcional</p>
-          </article>
-
-          {/* Card: Tareas Pendientes */}
-          <article className="dashboard-stat">
-            <div className="dashboard-stat-topline">
-              <span>Tareas Pendientes</span>
-              <span className="dashboard-stat-icon">✓</span>
-            </div>
-            <strong>{tasks.filter((t) => !t.completada).length}</strong>
-            <p>{tasks.filter((t) => t.completada).length} completadas</p>
-          </article>
-        </div>
-
-        {/* TAB 1: RESUMEN / VISTA GENERAL */}
-        {activeTab === "resumen" && (
-          <div className="dashboard-grid">
-            {/* Gastos Recientes */}
-            <section className="dashboard-section dashboard-expenses" id="gastos">
-              <div className="dashboard-section-heading">
-                <div>
-                  <p className="dashboard-eyebrow">Actividad Económica</p>
-                  <h2>Gastos recientes</h2>
-                </div>
+                <span style={{ color: "#4f665c", fontWeight: 600 }}>Código:</span>
+                <strong style={{ fontFamily: "monospace", letterSpacing: "1px", color: "var(--dashboard-green)" }}>
+                  {dwelling.codigoInvitacion}
+                </strong>
                 <button
                   type="button"
-                  onClick={() => setActiveTab("gastos")}
-                  style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                  onClick={() => handleCopyCode(dwelling.codigoInvitacion)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--dashboard-green)",
+                    padding: "2px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                  title="Copiar código de invitación"
                 >
-                  Ver todos ({expenses.length})
+                  {copiedCode ? <Check size={14} color="#15803d" /> : <Copy size={14} />}
                 </button>
               </div>
+            </div>
 
-              {expenses.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--dashboard-muted)" }}>
-                  <p>No se han registrado gastos aún en esta vivienda.</p>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <button
+                type="button"
+                onClick={() => cambiarTab("resumen")}
+                style={{
+                  background: "none",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "var(--dashboard-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                ← Volver al Resumen
+              </button>
+
+              {activeTab === "gastos" && (
+                <button
+                  type="button"
+                  className="dashboard-primary-action"
+                  onClick={() => handleOpenGastoModal()}
+                  style={{ padding: "6px 14px", minHeight: "34px", fontSize: "12px" }}
+                >
+                  <Plus size={14} /> Registrar gasto
+                </button>
+              )}
+
+              {activeTab === "deudas" && (
+                <button
+                  type="button"
+                  className="dashboard-primary-action"
+                  onClick={() => handleOpenPagoModal()}
+                  style={{ padding: "6px 14px", minHeight: "34px", fontSize: "12px" }}
+                >
+                  <HandCoins size={14} /> Registrar pago
+                </button>
+              )}
+
+              {activeTab === "tareas" && (
+                <button
+                  type="button"
+                  className="dashboard-primary-action"
+                  onClick={() => {
+                    setActionError(null);
+                    setModalTareaOpen(true);
+                  }}
+                  style={{ padding: "6px 14px", minHeight: "34px", fontSize: "12px" }}
+                >
+                  <Plus size={14} /> Nueva tarea
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 1: RESUMEN / VISTA GENERAL */}
+        {activeTab === "resumen" && dwelling && (
+          <>
+            {/* Hogar Activo Welcome Card */}
+            <div
+              style={{
+                background: "#ffffff",
+                padding: "24px 28px",
+                borderRadius: "16px",
+                border: "1px solid #dce8e2",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.03)",
+                marginBottom: "24px",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "20px",
+              }}
+            >
+              <div>
+                <p style={{ margin: "0 0 4px", fontSize: "12px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "var(--dashboard-green)" }}>
+                  Hogar Activo
+                </p>
+                <h1 style={{ margin: "0 0 6px", fontSize: "28px", color: "var(--dashboard-ink)" }}>
+                  {dwelling.nombre}
+                </h1>
+                <p style={{ margin: 0, fontSize: "14px", color: "var(--dashboard-muted)" }}>
+                  {dwelling.direccion || "Dirección no especificada"} · {members.length} {members.length === 1 ? "integrante" : "integrantes"}
+                </p>
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
+                {/* Código de invitación con 1-click copy */}
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    background: "#f4f8f6",
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    border: "1px solid #c8dcd2",
+                  }}
+                >
+                  <span style={{ fontSize: "12px", color: "#4f665c", fontWeight: 600 }}>Código:</span>
+                  <strong style={{ fontFamily: "monospace", fontSize: "16px", letterSpacing: "2px", color: "var(--dashboard-green)" }}>
+                    {dwelling.codigoInvitacion}
+                  </strong>
                   <button
                     type="button"
-                    onClick={() => handleOpenGastoModal()}
+                    onClick={() => handleCopyCode(dwelling.codigoInvitacion)}
                     style={{
-                      background: "var(--dashboard-green)",
-                      color: "#ffffff",
+                      background: "none",
                       border: "none",
-                      padding: "8px 16px",
-                      borderRadius: "6px",
-                      fontWeight: 600,
                       cursor: "pointer",
-                      fontSize: "13px",
+                      color: "var(--dashboard-green)",
+                      padding: "4px",
+                      display: "flex",
+                      alignItems: "center",
                     }}
+                    title="Copiar código de invitación"
                   >
-                    + Registrar primer gasto
+                    {copiedCode ? <Check size={16} color="#15803d" /> : <Copy size={16} />}
                   </button>
                 </div>
-              ) : (
-                <div className="dashboard-list">
-                  {expenses.slice(0, 4).map((gasto) => (
-                    <article
-                      className="dashboard-list-row"
-                      key={gasto.id}
-                      onClick={() => setSelectedExpenseForDetail(gasto)}
-                      style={{ cursor: "pointer" }}
-                      title="Ver desglose proporcional"
-                    >
-                      <span className="dashboard-expense-icon dashboard-expense-icon-green">$</span>
-                      <div className="dashboard-list-copy">
-                        <strong>{gasto.concepto}</strong>
-                        <span>
-                          Pagó: {gasto.pagadorNombre || "Integrante"} · {gasto.fecha}
-                        </span>
-                      </div>
-                      <div style={{ textAlign: "right", marginLeft: "auto" }}>
-                        <strong className="dashboard-list-amount">{formatCOP(gasto.monto)}</strong>
-                        {user && gasto.cuotas[user.uid] !== undefined && (
-                          <div style={{ fontSize: "11px", color: "var(--dashboard-muted)" }}>
-                            Tu cuota: {formatCOP(gasto.cuotas[user.uid])}
-                          </div>
-                        )}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
 
-            {/* Tareas Domésticas - Vista Resumen de Pendientes */}
-            <section className="dashboard-section dashboard-tasks" id="tareas">
-              <div className="dashboard-section-heading">
-                <div>
-                  <p className="dashboard-eyebrow">Organización de la casa</p>
-                  <h2>Próximas tareas pendientes</h2>
+                {/* Botón Registrar Gasto (HU10) */}
+                <button
+                  type="button"
+                  className="dashboard-primary-action"
+                  onClick={() => handleOpenGastoModal()}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                >
+                  <Plus size={16} /> Registrar gasto
+                </button>
+              </div>
+            </div>
+
+            {/* Summary Stats Cards */}
+            <div className="dashboard-stats" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "16px", marginTop: "0", marginBottom: "28px" }}>
+              {/* Card 1: Tu Saldo Individual y Consolidado (HU15) */}
+              <article className="dashboard-stat dashboard-stat-featured">
+                <div className="dashboard-stat-topline" style={{ marginBottom: "6px" }}>
+                  <span style={{ fontWeight: 700 }}>Tu Saldo Individual</span>
+                  <span
+                    style={{
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "50%",
+                      background: userSaldo > 0 ? "#15803d" : userSaldo < 0 ? "#b91c1c" : "#94a3b8",
+                    }}
+                  />
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <SaldoConsolidadoCard expenses={expenses} payments={payments} userId={user?.uid ?? ""} onVerDesglose={() => setDesgloseObjetivo({ tipo: "saldo" })} />
+              </article>
+
+              {/* Card 2: Gastos Totales */}
+              <article
+                className="dashboard-stat"
+                onClick={() => cambiarTab("gastos")}
+                style={{ cursor: "pointer", display: "flex", flexDirection: "column" }}
+                title="Ver desglose en Gastos"
+              >
+                <div className="dashboard-stat-topline">
+                  <span>Total Gastos del Hogar</span>
+                  <span className="dashboard-stat-icon">$</span>
+                </div>
+                <strong style={{ fontSize: "28px", margin: "14px 0 6px" }}>{formatCOP(totalGastosMes)}</strong>
+                <p style={{ margin: "auto 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{expenses.length} movimientos</span>
+                  <span style={{ color: "var(--dashboard-green)", fontWeight: 600 }}>Ver gastos →</span>
+                </p>
+              </article>
+
+              {/* Card 3: Tu Ingreso Mensual Registrado (HU04) */}
+              <article className="dashboard-stat" style={{ display: "flex", flexDirection: "column" }}>
+                <div className="dashboard-stat-topline">
+                  <span>Tu Ingreso Mensual</span>
                   <button
                     type="button"
-                    onClick={() => setActiveTab("tareas")}
-                    style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
-                  >
-                    Ver todas ({tareasPendientesHogar.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNuevoIngresoInput(String(userProfile?.ingresoMensual || ""));
                       setActionError(null);
-                      setModalTareaOpen(true);
+                      setModalIngresoOpen(true);
                     }}
-                    style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--dashboard-green)",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      textDecoration: "underline",
+                    }}
                   >
-                    + Nueva tarea
+                    Modificar
                   </button>
                 </div>
-              </div>
+                <strong style={{ fontSize: "28px", margin: "14px 0 6px" }}>{formatCOP(userProfile?.ingresoMensual || 0)}</strong>
+                <p style={{ margin: "auto 0 0" }}>Usado en el reparto proporcional de cuotas</p>
+              </article>
 
-              {tareasPendientesHogar.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--dashboard-muted)" }}>
-                  <p>¡Al día! No hay tareas pendientes en el hogar.</p>
+              {/* Card 4: Tareas Pendientes */}
+              <article
+                className="dashboard-stat"
+                onClick={() => cambiarTab("tareas")}
+                style={{ cursor: "pointer", display: "flex", flexDirection: "column" }}
+                title="Ir a tareas del hogar"
+              >
+                <div className="dashboard-stat-topline">
+                  <span>Tareas Pendientes</span>
+                  <span className="dashboard-stat-icon">✓</span>
                 </div>
-              ) : (
-                <div className="dashboard-list">
-                  {tareasPendientesHogar.slice(0, 4).map((t) => {
-                    const badge = getDueDateBadge(t.fechaVencimiento);
-                    const esResponsable = Boolean(user && t.responsableId === user.uid);
-                    return (
-                      <article className="dashboard-list-row dashboard-task-row" key={t.id}>
-                        <button
-                          type="button"
-                          onClick={() => handleSolicitarCompletarTarea(t)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: esResponsable ? "pointer" : "not-allowed",
-                            padding: 0,
-                            opacity: esResponsable ? 1 : 0.4,
-                          }}
-                          title={
-                            esResponsable
-                              ? "Marcar como completada"
-                              : `Asignada a ${t.responsableNombre || "otro integrante"}`
-                          }
-                        >
-                          <Square size={18} color="#94a3b8" />
-                        </button>
-                        <div className="dashboard-list-copy">
-                          <strong>{t.titulo}</strong>
-                          <span>
-                            {t.responsableNombre || "Integrante"}{esResponsable ? " (Tú)" : ""} · Vence: {t.fechaVencimiento}
-                          </span>
-                        </div>
-                        {badge && (
-                          <span
-                            className="dashboard-task-state dashboard-task-state-pending"
-                            style={{
-                              marginLeft: "auto",
-                              background:
-                                badge.type === "vencida"
-                                  ? "#fef2f2"
-                                  : badge.type === "hoy"
-                                  ? "#fffbeb"
-                                  : badge.type === "proxima"
-                                  ? "#f0fdf4"
-                                  : "#f8fafc",
-                              color:
-                                badge.type === "vencida"
-                                  ? "#b91c1c"
-                                  : badge.type === "hoy"
-                                  ? "#b45309"
-                                  : badge.type === "proxima"
-                                  ? "#15803d"
-                                  : "#475569",
-                              border:
-                                badge.type === "vencida"
-                                  ? "1px solid #fecaca"
-                                  : badge.type === "hoy"
-                                  ? "1px solid #fde68a"
-                                  : badge.type === "proxima"
-                                  ? "1px solid #bbf7d0"
-                                  : "1px solid #e2e8f0",
-                              fontWeight: 700,
-                            }}
-                          >
-                            {badge.label}
-                          </span>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+                <strong style={{ fontSize: "28px", margin: "14px 0 6px" }}>{tasks.filter((t) => !t.completada).length}</strong>
+                <p style={{ margin: "auto 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{tasks.filter((t) => t.completada).length} completadas</span>
+                  <span style={{ color: "var(--dashboard-green)", fontWeight: 600 }}>Ver tareas →</span>
+                </p>
+              </article>
+            </div>
 
-            {/* Obligaciones y Deudas Pendientes (Resumen) */}
-            <section className="dashboard-section dashboard-debts" id="deudas-resumen">
-              <div className="dashboard-section-heading">
-                <div>
-                  <p className="dashboard-eyebrow">Cuentas Claras</p>
-                  <h2>Deudas entre integrantes</h2>
-                </div>
-                <div style={{ display: "flex", gap: "8px" }}>
+            {/* Grid de Resumen: Gastos Recientes, Tareas y Deudas */}
+            <div className="dashboard-grid" style={{ marginTop: "0" }}>
+              {/* Gastos Recientes */}
+              <section className="dashboard-section dashboard-expenses" id="gastos">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <p className="dashboard-eyebrow">Actividad Económica</p>
+                    <h2>Gastos recientes</h2>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setActiveTab("deudas")}
+                    onClick={() => cambiarTab("gastos")}
                     style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
                   >
-                    Ver todas ({debts.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenPagoModal()}
-                    style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                  >
-                    <HandCoins size={14} /> Pagar
+                    Ver todos ({expenses.length})
                   </button>
                 </div>
-              </div>
 
-              {debts.filter((d) => d.estado !== "liquidada").length === 0 ? (
-                <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--dashboard-muted)" }}>
-                  <p>¡No hay deudas pendientes en el hogar!</p>
-                </div>
-              ) : (
-                <div className="dashboard-list">
-                  {debts.filter((d) => d.estado !== "liquidada").slice(0, 4).map((d) => {
-                    const soyDeudor = user && d.deudorId === user.uid;
-                    return (
+                {expenses.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--dashboard-muted)" }}>
+                    <p>No se han registrado gastos aún en esta vivienda.</p>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenGastoModal()}
+                      style={{
+                        background: "var(--dashboard-green)",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "8px 16px",
+                        borderRadius: "6px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontSize: "13px",
+                      }}
+                    >
+                      + Registrar primer gasto
+                    </button>
+                  </div>
+                ) : (
+                  <div className="dashboard-list">
+                    {expenses.slice(0, 4).map((gasto) => (
                       <article
                         className="dashboard-list-row"
-                        key={d.id}
+                        key={gasto.id}
+                        onClick={() => setSelectedExpenseForDetail(gasto)}
                         style={{ cursor: "pointer" }}
-                        onClick={() => handleOpenPagoModal(d)}
-                        title="Registrar pago de esta deuda"
+                        title="Ver desglose proporcional"
                       >
-                        <span className={`dashboard-expense-icon ${soyDeudor ? "dashboard-expense-icon-red" : "dashboard-expense-icon-green"}`}>
-                          $
-                        </span>
+                        <span className="dashboard-expense-icon dashboard-expense-icon-green">$</span>
                         <div className="dashboard-list-copy">
-                          <strong>{d.gastoConcepto}</strong>
+                          <strong>{gasto.concepto}</strong>
                           <span>
-                            {d.deudorNombre} ➔ {d.acreedorNombre} · {d.estado === "parcial" ? "Abono parcial" : "Pendiente"}
+                            Pagó: {gasto.pagadorNombre || "Integrante"} · {gasto.fecha}
                           </span>
                         </div>
                         <div style={{ textAlign: "right", marginLeft: "auto" }}>
-                          <strong className="dashboard-list-amount" style={{ color: soyDeudor ? "#b91c1c" : "#15803d" }}>
-                            {formatCOP(d.saldoPendiente)}
-                          </strong>
-                          <div style={{ fontSize: "11px", color: "var(--dashboard-green)", fontWeight: 600 }}>
-                            {soyDeudor ? "Tú debes · Abonar ➜" : "Te deben · Registrar pago"}
-                          </div>
+                          <strong className="dashboard-list-amount">{formatCOP(gasto.monto)}</strong>
+                          {user && gasto.cuotas[user.uid] !== undefined && (
+                            <div style={{ fontSize: "11px", color: "var(--dashboard-muted)" }}>
+                              Tu cuota: {formatCOP(gasto.cuotas[user.uid])}
+                            </div>
+                          )}
                         </div>
                       </article>
-                    );
-                  })}
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* Tareas Domésticas - Vista Resumen de Pendientes */}
+              <section className="dashboard-section dashboard-tasks" id="tareas">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <p className="dashboard-eyebrow">Organización de la casa</p>
+                    <h2>Próximas tareas pendientes</h2>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <button
+                      type="button"
+                      onClick={() => cambiarTab("tareas")}
+                      style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                    >
+                      Ver todas ({tareasPendientesHogar.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionError(null);
+                        setModalTareaOpen(true);
+                      }}
+                      style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                    >
+                      + Nueva tarea
+                    </button>
+                  </div>
                 </div>
-              )}
-            </section>
-          </div>
+
+                {tareasPendientesHogar.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--dashboard-muted)" }}>
+                    <p>¡Al día! No hay tareas pendientes en el hogar.</p>
+                  </div>
+                ) : (
+                  <div className="dashboard-list">
+                    {tareasPendientesHogar.slice(0, 4).map((t) => {
+                      const badge = getDueDateBadge(t.fechaVencimiento);
+                      const esResponsable = Boolean(user && t.responsableId === user.uid);
+                      return (
+                        <article className="dashboard-list-row dashboard-task-row" key={t.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSolicitarCompletarTarea(t)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: esResponsable ? "pointer" : "not-allowed",
+                              padding: 0,
+                              opacity: esResponsable ? 1 : 0.4,
+                            }}
+                            title={
+                              esResponsable
+                                ? "Marcar como completada"
+                                : `Asignada a ${t.responsableNombre || "otro integrante"}`
+                            }
+                          >
+                            <Square size={18} color="#94a3b8" />
+                          </button>
+                          <div className="dashboard-list-copy">
+                            <strong>{t.titulo}</strong>
+                            <span>
+                              {t.responsableNombre || "Integrante"}{esResponsable ? " (Tú)" : ""} · Vence: {t.fechaVencimiento}
+                            </span>
+                          </div>
+                          {badge && (
+                            <span
+                              className="dashboard-task-state dashboard-task-state-pending"
+                              style={{
+                                marginLeft: "auto",
+                                background:
+                                  badge.type === "vencida"
+                                    ? "#fef2f2"
+                                    : badge.type === "hoy"
+                                    ? "#fffbeb"
+                                    : badge.type === "proxima"
+                                    ? "#f0fdf4"
+                                    : "#f8fafc",
+                                color:
+                                  badge.type === "vencida"
+                                    ? "#b91c1c"
+                                    : badge.type === "hoy"
+                                    ? "#b45309"
+                                    : badge.type === "proxima"
+                                    ? "#15803d"
+                                    : "#475569",
+                                border:
+                                  badge.type === "vencida"
+                                    ? "1px solid #fecaca"
+                                    : badge.type === "hoy"
+                                    ? "1px solid #fde68a"
+                                    : badge.type === "proxima"
+                                    ? "1px solid #bbf7d0"
+                                    : "1px solid #e2e8f0",
+                                fontWeight: 700,
+                              }}
+                            >
+                              {badge.label}
+                            </span>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {/* Obligaciones y Deudas Pendientes (Resumen) */}
+              <section className="dashboard-section dashboard-debts" id="deudas-resumen">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <p className="dashboard-eyebrow">Cuentas Claras</p>
+                    <h2>Deudas entre integrantes</h2>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => cambiarTab("deudas")}
+                      style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                    >
+                      Ver todas ({debts.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPagoModal()}
+                      style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <HandCoins size={14} /> Pagar
+                    </button>
+                  </div>
+                </div>
+
+                {debts.filter((d) => d.estado !== "liquidada").length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--dashboard-muted)" }}>
+                    <p>¡No hay deudas pendientes en el hogar!</p>
+                  </div>
+                ) : (
+                  <div className="dashboard-list">
+                    {debts.filter((d) => d.estado !== "liquidada").slice(0, 4).map((d) => {
+                      const soyDeudor = user && d.deudorId === user.uid;
+                      return (
+                        <article
+                          className="dashboard-list-row"
+                          key={d.id}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => handleOpenPagoModal(d)}
+                          title="Registrar pago de esta deuda"
+                        >
+                          <span className={`dashboard-expense-icon ${soyDeudor ? "dashboard-expense-icon-red" : "dashboard-expense-icon-green"}`}>
+                            $
+                          </span>
+                          <div className="dashboard-list-copy">
+                            <strong>{d.gastoConcepto}</strong>
+                            <span>
+                              {d.deudorNombre} ➔ {d.acreedorNombre} · {d.estado === "parcial" ? "Abono parcial" : "Pendiente"}
+                            </span>
+                          </div>
+                          <div style={{ textAlign: "right", marginLeft: "auto" }}>
+                            <strong className="dashboard-list-amount" style={{ color: soyDeudor ? "#b91c1c" : "#15803d" }}>
+                              {formatCOP(d.saldoPendiente)}
+                            </strong>
+                            <div style={{ fontSize: "11px", color: "var(--dashboard-green)", fontWeight: 600 }}>
+                              {soyDeudor ? "Tú debes · Abonar ➜" : "Te deben · Registrar pago"}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </div>
+          </>
         )}
 
         {/* TAB 2: HISTORIAL FILTRADO DE GASTOS (HU12) */}
