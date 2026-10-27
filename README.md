@@ -118,3 +118,13 @@ Para mantener un historial claro, descriptivo y estructurado, utilizamos Convent
 ## Objetivo del Proyecto
 
 Our House PI busca simplificar la administración doméstica mediante una herramienta digital intuitiva que permita mejorar la organización financiera y operativa del hogar compartido. La aplicación ofrece una experiencia centralizada para que cada integrante pueda colaborar de manera ordenada, transparente y eficiente.
+
+## Despliegue en Netlify
+
+El repositorio incluye la configuración de Netlify en `netlify.toml`. Al conectar el repositorio en Netlify, no es necesario completar manualmente los ajustes de build:
+
+- **Base directory:** `our-house`
+- **Build command:** `npm run build`
+- **Publish directory:** `dist`
+
+Antes del despliegue, agrega en Netlify las variables de entorno `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_MEASUREMENT_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_PROJECT_ID` y `VITE_FIREBASE_STORAGE_BUCKET`, usando los valores de tu archivo `.env` local. No subas el archivo `.env` al repositorio.
