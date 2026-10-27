@@ -246,6 +246,7 @@ function RegistrarPagoModal({
                                 </label>
                                 <select
                                     id="select-debt-item"
+                                    className="dashboard-payment-control"
                                     value={selectedDeudaId}
                                     onChange={(e) => handleSelectDebtChange(e.target.value)}
                                     style={{
@@ -438,6 +439,7 @@ function RegistrarPagoModal({
                             </label>
                             <input
                                 id="monto-pago-input"
+                                className="dashboard-payment-control"
                                 type="number"
                                 min="1"
                                 max={activeDebt ? activeDebt.saldoPendiente : undefined}
