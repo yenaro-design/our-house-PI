@@ -77,8 +77,10 @@ export async function obtenerTareasPorVivienda(viviendaId: string): Promise<Task
 export type TaskFilterPredicate = (task: Task) => boolean;
 export type TaskSortComparator = (a: Task, b: Task) => number;
 
-export const PREDICADO_TAREAS_PENDIENTES: TaskFilterPredicate = (t) => !t.completada;
-export const PREDICADO_TAREAS_COMPLETADAS: TaskFilterPredicate = (t) => t.completada;
+export const PREDICADO_TAREAS_PENDIENTES: TaskFilterPredicate = (t) =>
+    !t.completada && t.estado !== 'realizada' && t.estado !== 'completada';
+export const PREDICADO_TAREAS_COMPLETADAS: TaskFilterPredicate = (t) =>
+    Boolean(t.completada || t.estado === 'realizada' || t.estado === 'completada');
 export const PREDICADO_TAREAS_TODAS: TaskFilterPredicate = () => true;
 
 export const COMPARADOR_FECHA_VENCIMIENTO_ASC: TaskSortComparator = (a, b) => {
@@ -105,6 +107,28 @@ export const COMPARADOR_FECHA_VENCIMIENTO_DESC: TaskSortComparator = (a, b) => {
     return timeB - timeA;
 };
 
+export const COMPARADOR_FECHA_COMPLETADA_DESC: TaskSortComparator = (a, b) => {
+    const timeA = a.fechaCompletada ? new Date(a.fechaCompletada).getTime() : 0;
+    const timeB = b.fechaCompletada ? new Date(b.fechaCompletada).getTime() : 0;
+    if (timeA === timeB) {
+        const dueA = new Date(a.fechaVencimiento).getTime();
+        const dueB = new Date(b.fechaVencimiento).getTime();
+        return (isNaN(dueB) ? 0 : dueB) - (isNaN(dueA) ? 0 : dueA);
+    }
+    return timeB - timeA;
+};
+
+export const COMPARADOR_FECHA_COMPLETADA_ASC: TaskSortComparator = (a, b) => {
+    const timeA = a.fechaCompletada ? new Date(a.fechaCompletada).getTime() : 0;
+    const timeB = b.fechaCompletada ? new Date(b.fechaCompletada).getTime() : 0;
+    if (timeA === timeB) {
+        const dueA = new Date(a.fechaVencimiento).getTime();
+        const dueB = new Date(b.fechaVencimiento).getTime();
+        return (isNaN(dueA) ? 0 : dueA) - (isNaN(dueB) ? 0 : dueB);
+    }
+    return timeA - timeB;
+};
+
 export const COMPARADOR_TITULO_ASC: TaskSortComparator = (a, b) =>
     a.titulo.localeCompare(b.titulo);
 
@@ -115,7 +139,7 @@ export interface TaskQueryCriteria {
     fechaDesde?: string;
     fechaHasta?: string;
     filtroPersonalizado?: TaskFilterPredicate;
-    orden?: 'fechaVencimientoAsc' | 'fechaVencimientoDesc' | 'titulo';
+    orden?: 'fechaVencimientoAsc' | 'fechaVencimientoDesc' | 'fechaCompletadaDesc' | 'fechaCompletadaAsc' | 'titulo';
     comparadorPersonalizado?: TaskSortComparator;
 }
 
@@ -169,9 +193,13 @@ export function filtrarYOrdenarTareas(
         resultado = resultado.filter(criterios.filtroPersonalizado);
     }
 
-    // 6. Ordenamiento extensible (Criterio 3)
+    // 6. Ordenamiento extensible (Criterio 3 y 4)
     if (criterios.comparadorPersonalizado) {
         resultado.sort(criterios.comparadorPersonalizado);
+    } else if (criterios.orden === 'fechaCompletadaDesc') {
+        resultado.sort(COMPARADOR_FECHA_COMPLETADA_DESC);
+    } else if (criterios.orden === 'fechaCompletadaAsc') {
+        resultado.sort(COMPARADOR_FECHA_COMPLETADA_ASC);
     } else if (criterios.orden === 'fechaVencimientoDesc') {
         resultado.sort(COMPARADOR_FECHA_VENCIMIENTO_DESC);
     } else if (criterios.orden === 'titulo') {
@@ -202,6 +230,28 @@ export async function obtenerTareasPendientesPorVivienda(
         ...criteriosExtra,
         estado: 'pendientes',
         orden: criteriosExtra?.orden || 'fechaVencimientoAsc',
+    });
+}
+
+/**
+ * HU21: Consultar el historial de tareas completadas de una vivienda.
+ * Criterios de Aceptación:
+ * 1. El sistema debe mostrar las tareas que hayan sido marcadas como completadas.
+ * 2. La información debe corresponder únicamente a tareas de la vivienda.
+ * 3. El historial debe permitir identificar la tarea y su estado de completada.
+ * 4. El historial debe reflejar las tareas que hayan sido completadas previamente.
+ * 5. Las tareas que todavía estén pendientes no deben aparecer como completadas.
+ */
+export async function obtenerTareasCompletadasPorVivienda(
+    viviendaId: string,
+    criteriosExtra?: Omit<TaskQueryCriteria, 'estado'>
+): Promise<Task[]> {
+    if (!viviendaId) return [];
+    const todasLasTareas = await obtenerTareasPorVivienda(viviendaId);
+    return filtrarYOrdenarTareas(todasLasTareas, {
+        ...criteriosExtra,
+        estado: 'completadas',
+        orden: criteriosExtra?.orden || 'fechaCompletadaDesc',
     });
 }
 
