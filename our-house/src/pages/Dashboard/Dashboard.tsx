@@ -97,6 +97,7 @@ function Dashboard() {
   const [desgloseObjetivo, setDesgloseObjetivo] = useState<ObjetivoDesglose | null>(null);
 
   const [tareaACompletar, setTareaACompletar] = useState<Task | null>(null);
+  const [vistaTareasInicial, setVistaTareasInicial] = useState<"pendientes" | "completadas">("pendientes");
 
   // Filters State (HU12)
   const [busqueda, setBusqueda] = useState("");
@@ -892,7 +893,10 @@ function Dashboard() {
           <button
             type="button"
             className={`dashboard-nav-link ${activeTab === "tareas" ? "dashboard-nav-link-active" : ""}`}
-            onClick={() => cambiarTab("tareas")}
+            onClick={() => {
+              setVistaTareasInicial("pendientes");
+              cambiarTab("tareas");
+            }}
             style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Tareas ({tasks.filter((t) => !t.completada).length})
@@ -1418,8 +1422,27 @@ function Dashboard() {
                 </div>
                 <strong style={{ fontSize: "28px", margin: "14px 0 6px" }}>{tasks.filter((t) => !t.completada).length}</strong>
                 <p style={{ margin: "auto 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span>{tasks.filter((t) => t.completada).length} completadas</span>
-                  <span style={{ color: "var(--dashboard-green)", fontWeight: 600 }}>Ver tareas →</span>
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVistaTareasInicial("completadas");
+                      cambiarTab("tareas");
+                    }}
+                    style={{ textDecoration: "underline", cursor: "pointer" }}
+                    title="Consultar historial de tareas completadas"
+                  >
+                    {tasks.filter((t) => t.completada).length} completadas
+                  </span>
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVistaTareasInicial("pendientes");
+                      cambiarTab("tareas");
+                    }}
+                    style={{ color: "var(--dashboard-green)", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Ver tareas →
+                  </span>
                 </p>
               </article>
             </div>
@@ -1493,17 +1516,31 @@ function Dashboard() {
                 )}
               </section>
 
-              {/* Tareas Domésticas - Vista Resumen de Pendientes */}
+              {/* Tareas Domésticas - Vista Resumen de Pendientes y Acceso al Historial */}
               <section className="dashboard-section dashboard-tasks" id="tareas">
                 <div className="dashboard-section-heading">
                   <div>
                     <p className="dashboard-eyebrow">Organización de la casa</p>
                     <h2>Próximas tareas pendientes</h2>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                     <button
                       type="button"
-                      onClick={() => cambiarTab("tareas")}
+                      onClick={() => {
+                        setVistaTareasInicial("completadas");
+                        cambiarTab("tareas");
+                      }}
+                      style={{ background: "none", border: "none", color: "var(--dashboard-muted)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                      title="Ver historial de tareas completadas"
+                    >
+                      Historial completadas ({tasks.filter((t) => t.completada).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVistaTareasInicial("pendientes");
+                        cambiarTab("tareas");
+                      }}
                       style={{ background: "none", border: "none", color: "var(--dashboard-green)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
                     >
                       Ver todas ({tareasPendientesHogar.length})
@@ -2466,6 +2503,7 @@ function Dashboard() {
               currentUserId={user?.uid}
               members={members}
               tasks={tasks}
+              initialView={vistaTareasInicial}
               onToggleTask={handleToggleTask}
               onSolicitarCompletarTask={handleSolicitarCompletarTarea}
               onOpenCrearTareaModal={() => {

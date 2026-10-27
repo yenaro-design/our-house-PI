@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     CheckSquare,
     Square,
@@ -24,6 +24,15 @@ import type {
     TaskSortComparator,
 } from '../services/taskService';
 
+export type TaskSortOption =
+    | 'fechaVencimientoAsc'
+    | 'fechaVencimientoDesc'
+    | 'fechaCompletadaDesc'
+    | 'fechaCompletadaAsc'
+    | 'titulo';
+
+export type EstadoFiltroTareas = 'pendientes' | 'mis_pendientes' | 'vencidas' | 'completadas';
+
 export interface ConsultarTareasPendientesProps {
     viviendaId: string;
     viviendaNombre?: string;
@@ -37,6 +46,7 @@ export interface ConsultarTareasPendientesProps {
     customFilter?: TaskFilterPredicate;
     customSort?: TaskSortComparator;
     showFilters?: boolean;
+    initialView?: 'pendientes' | 'completadas';
 }
 
 export default function ConsultarTareasPendientes({
@@ -51,14 +61,47 @@ export default function ConsultarTareasPendientes({
     customFilter,
     customSort,
     showFilters = true,
+    initialView = 'pendientes',
 }: ConsultarTareasPendientesProps) {
     // Estado de filtros extensibles
     const [busqueda, setBusqueda] = useState('');
     const [filtroResponsable, setFiltroResponsable] = useState<string>('todos');
-    const [orden, setOrden] = useState<'fechaVencimientoAsc' | 'fechaVencimientoDesc'>('fechaVencimientoAsc');
-    const [vistaActiva, setVistaActiva] = useState<'pendientes' | 'completadas'>('pendientes');
+    const [vistaActiva, setVistaActiva] = useState<'pendientes' | 'completadas'>(initialView);
+    const [estadoFiltro, setEstadoFiltro] = useState<EstadoFiltroTareas>(
+        initialView === 'completadas' ? 'completadas' : 'pendientes'
+    );
+    const [orden, setOrden] = useState<TaskSortOption>(
+        initialView === 'completadas' ? 'fechaCompletadaDesc' : 'fechaVencimientoAsc'
+    );
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
     const [mensajeFeedback, setMensajeFeedback] = useState<string | null>(null);
+
+    // Selección interactiva de estado entre las 4 tarjetas principales
+    const seleccionarEstado = (nuevoEstado: EstadoFiltroTareas) => {
+        setEstadoFiltro(nuevoEstado);
+        if (nuevoEstado === 'completadas') {
+            setVistaActiva('completadas');
+            setOrden('fechaCompletadaDesc');
+        } else {
+            setVistaActiva('pendientes');
+            setOrden('fechaVencimientoAsc');
+        }
+
+        if (nuevoEstado === 'mis_pendientes' && currentUserId) {
+            setFiltroResponsable(currentUserId);
+        } else if (filtroResponsable === currentUserId && (nuevoEstado === 'pendientes' || nuevoEstado === 'vencidas')) {
+            setFiltroResponsable('todos');
+        }
+    };
+
+    // Sincronizar vista si cambia desde props (navegación externa)
+    useEffect(() => {
+        if (initialView === 'completadas') {
+            seleccionarEstado('completadas');
+        } else if (initialView === 'pendientes') {
+            seleccionarEstado('pendientes');
+        }
+    }, [initialView]);
 
     // 1. Filtrado de tareas pertenecientes a la vivienda del usuario (Criterio 2)
     const tareasVivienda = useMemo(() => {
@@ -90,20 +133,57 @@ export default function ConsultarTareasPendientes({
     }, [tareasVivienda]);
 
     // 2. Consulta y ordenamiento aplicando OCP
-    // Si la vista es 'pendientes', Criterios 1, 3, 4 y 5 se cumplen estrictamente:
-    // - Solo tareas pendientes (!t.completada)
-    // - Las completadas NO aparecen en el listado de pendientes (Criterio 5)
-    // - Organizadas por fecha de vencimiento (Criterio 3)
     const tareasMostradas = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         return filtrarYOrdenarTareas(tareasVivienda, {
             estado: vistaActiva, // 'pendientes' o 'completadas'
-            responsableId: filtroResponsable,
+            responsableId: estadoFiltro === 'mis_pendientes' && currentUserId ? currentUserId : filtroResponsable,
             busqueda,
             orden,
-            filtroPersonalizado: customFilter,
+            filtroPersonalizado: (t) => {
+                if (estadoFiltro === 'vencidas') {
+                    if (t.completada || !t.fechaVencimiento) return false;
+                    const d = new Date(`${t.fechaVencimiento}T00:00:00`);
+                    if (isNaN(d.getTime()) || d.getTime() >= today.getTime()) {
+                        return false;
+                    }
+                }
+                if (customFilter && !customFilter(t)) {
+                    return false;
+                }
+                return true;
+            },
             comparadorPersonalizado: customSort,
         });
-    }, [tareasVivienda, vistaActiva, filtroResponsable, busqueda, orden, customFilter, customSort]);
+    }, [tareasVivienda, vistaActiva, estadoFiltro, currentUserId, filtroResponsable, busqueda, orden, customFilter, customSort]);
+
+    const tituloVista = useMemo(() => {
+        switch (estadoFiltro) {
+            case 'mis_pendientes':
+                return 'Mis Tareas Asignadas';
+            case 'vencidas':
+                return 'Tareas Vencidas del Hogar';
+            case 'completadas':
+                return 'Historial de Tareas Completadas';
+            default:
+                return 'Tareas del Hogar';
+        }
+    }, [estadoFiltro]);
+
+    const descripcionVista = useMemo(() => {
+        switch (estadoFiltro) {
+            case 'mis_pendientes':
+                return 'Consulta y realiza seguimiento de las actividades pendientes asignadas bajo tu responsabilidad.';
+            case 'vencidas':
+                return 'Actividades programadas que ya superaron su fecha límite y requieren atención prioritaria.';
+            case 'completadas':
+                return 'Consulta y realiza seguimiento del cumplimiento histórico de las actividades domésticas realizadas.';
+            default:
+                return 'Consulta las actividades pendientes ordenadas por fecha de vencimiento y responsable asignado.';
+        }
+    }, [estadoFiltro]);
 
     const handleToggle = async (t: Task) => {
         if (!t.completada && onSolicitarCompletarTask) {
@@ -141,10 +221,10 @@ export default function ConsultarTareasPendientes({
             >
                 <div>
                     <h2 style={{ fontSize: '22px', margin: '0 0 4px', color: 'var(--dashboard-ink)' }}>
-                        Tareas del Hogar {viviendaNombre ? `· ${viviendaNombre}` : ''}
+                        {tituloVista} {viviendaNombre ? `· ${viviendaNombre}` : ''}
                     </h2>
                     <p style={{ margin: 0, fontSize: '14px', color: 'var(--dashboard-muted)' }}>
-                        Consulta las actividades pendientes ordenadas por fecha de vencimiento y responsable asignado.
+                        {descripcionVista}
                     </p>
                 </div>
 
@@ -180,7 +260,7 @@ export default function ConsultarTareasPendientes({
                 </div>
             )}
 
-            {/* Tarjetas de Resumen Rápido (Estilo Dashboard) */}
+            {/* Tarjetas de Estados Principales (Botones Interactivos de Navegación) */}
             <div
                 style={{
                     display: 'grid',
@@ -188,19 +268,31 @@ export default function ConsultarTareasPendientes({
                     gap: '12px',
                 }}
             >
+                {/* 1. Tareas Pendientes */}
                 <div
-                    onClick={() => setVistaActiva('pendientes')}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => seleccionarEstado('pendientes')}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            seleccionarEstado('pendientes');
+                        }
+                    }}
                     style={{
-                        background: vistaActiva === 'pendientes' ? '#f4f8f6' : '#ffffff',
-                        border: vistaActiva === 'pendientes' ? '1.5px solid var(--dashboard-green)' : '1px solid var(--dashboard-line)',
+                        background: estadoFiltro === 'pendientes' ? '#f4f8f6' : '#ffffff',
+                        border: estadoFiltro === 'pendientes' ? '2px solid var(--dashboard-green)' : '1px solid var(--dashboard-line)',
+                        boxShadow: estadoFiltro === 'pendientes' ? '0 4px 12px rgba(34, 197, 94, 0.15)' : 'none',
                         borderRadius: '10px',
                         padding: '14px 16px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
+                        outline: 'none',
                     }}
+                    title="Ver todas las tareas pendientes de la vivienda"
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dashboard-muted)' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: estadoFiltro === 'pendientes' ? 'var(--dashboard-green)' : 'var(--dashboard-muted)' }}>
                             Tareas Pendientes
                         </span>
                         <Clock size={16} color="var(--dashboard-green)" />
@@ -211,21 +303,31 @@ export default function ConsultarTareasPendientes({
                     </p>
                 </div>
 
+                {/* 2. Asignadas a Mí */}
                 <div
-                    onClick={() => {
-                        setVistaActiva('pendientes');
-                        if (currentUserId) setFiltroResponsable(currentUserId);
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => seleccionarEstado('mis_pendientes')}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            seleccionarEstado('mis_pendientes');
+                        }
                     }}
                     style={{
-                        background: '#ffffff',
-                        border: '1px solid var(--dashboard-line)',
+                        background: estadoFiltro === 'mis_pendientes' ? '#f4f8f6' : '#ffffff',
+                        border: estadoFiltro === 'mis_pendientes' ? '2px solid var(--dashboard-green)' : '1px solid var(--dashboard-line)',
+                        boxShadow: estadoFiltro === 'mis_pendientes' ? '0 4px 12px rgba(34, 197, 94, 0.15)' : 'none',
                         borderRadius: '10px',
                         padding: '14px 16px',
                         cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        outline: 'none',
                     }}
+                    title="Ver solo las tareas pendientes asignadas a ti"
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dashboard-muted)' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: estadoFiltro === 'mis_pendientes' ? 'var(--dashboard-green)' : 'var(--dashboard-muted)' }}>
                             Asignadas a Mí
                         </span>
                         <UserIcon size={16} color="var(--dashboard-green)" />
@@ -236,40 +338,99 @@ export default function ConsultarTareasPendientes({
                     </p>
                 </div>
 
-                {vencidasCount > 0 && (
-                    <div
-                        style={{
-                            background: '#fef2f2',
-                            border: '1px solid #fecaca',
-                            borderRadius: '10px',
-                            padding: '14px 16px',
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#b91c1c' }}>
-                                Tareas Vencidas
-                            </span>
-                            <AlertTriangle size={16} color="#b91c1c" />
-                        </div>
-                        <strong style={{ fontSize: '24px', color: '#b91c1c' }}>{vencidasCount}</strong>
-                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#b91c1c' }}>
-                            Requieren atención prioritaria
-                        </p>
-                    </div>
-                )}
-
+                {/* 3. Tareas Vencidas */}
                 <div
-                    onClick={() => setVistaActiva('completadas')}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => seleccionarEstado('vencidas')}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            seleccionarEstado('vencidas');
+                        }
+                    }}
                     style={{
-                        background: vistaActiva === 'completadas' ? '#f4f8f6' : '#ffffff',
-                        border: vistaActiva === 'completadas' ? '1.5px solid var(--dashboard-green)' : '1px solid var(--dashboard-line)',
+                        background:
+                            estadoFiltro === 'vencidas'
+                                ? '#fee2e2'
+                                : vencidasCount > 0
+                                ? '#fef2f2'
+                                : '#ffffff',
+                        border:
+                            estadoFiltro === 'vencidas'
+                                ? '2px solid #b91c1c'
+                                : vencidasCount > 0
+                                ? '1px solid #fecaca'
+                                : '1px solid var(--dashboard-line)',
+                        boxShadow: estadoFiltro === 'vencidas' ? '0 4px 12px rgba(185, 28, 28, 0.2)' : 'none',
                         borderRadius: '10px',
                         padding: '14px 16px',
                         cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        outline: 'none',
                     }}
+                    title="Ver tareas pendientes con fecha de vencimiento expirada"
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--dashboard-muted)' }}>
+                        <span
+                            style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                color: vencidasCount > 0 || estadoFiltro === 'vencidas' ? '#b91c1c' : 'var(--dashboard-muted)',
+                            }}
+                        >
+                            Tareas Vencidas
+                        </span>
+                        <AlertTriangle
+                            size={16}
+                            color={vencidasCount > 0 || estadoFiltro === 'vencidas' ? '#b91c1c' : 'var(--dashboard-muted)'}
+                        />
+                    </div>
+                    <strong
+                        style={{
+                            fontSize: '24px',
+                            color: vencidasCount > 0 || estadoFiltro === 'vencidas' ? '#b91c1c' : 'var(--dashboard-ink)',
+                        }}
+                    >
+                        {vencidasCount}
+                    </strong>
+                    <p
+                        style={{
+                            margin: '4px 0 0',
+                            fontSize: '12px',
+                            color: vencidasCount > 0 || estadoFiltro === 'vencidas' ? '#b91c1c' : 'var(--dashboard-muted)',
+                        }}
+                    >
+                        {vencidasCount > 0 ? 'Requieren atención prioritaria' : 'Sin tareas vencidas'}
+                    </p>
+                </div>
+
+                {/* 4. Historial Completadas */}
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => seleccionarEstado('completadas')}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            seleccionarEstado('completadas');
+                        }
+                    }}
+                    style={{
+                        background: estadoFiltro === 'completadas' ? '#f4f8f6' : '#ffffff',
+                        border: estadoFiltro === 'completadas' ? '2px solid var(--dashboard-green)' : '1px solid var(--dashboard-line)',
+                        boxShadow: estadoFiltro === 'completadas' ? '0 4px 12px rgba(34, 197, 94, 0.15)' : 'none',
+                        borderRadius: '10px',
+                        padding: '14px 16px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        outline: 'none',
+                    }}
+                    title="Consultar el historial de actividades completadas"
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: estadoFiltro === 'completadas' ? 'var(--dashboard-green)' : 'var(--dashboard-muted)' }}>
                             Historial Completadas
                         </span>
                         <CheckCircle2 size={16} color="#15803d" />
@@ -304,14 +465,14 @@ export default function ConsultarTareasPendientes({
                         paddingBottom: '12px',
                     }}
                 >
-                    {/* Selector de Estado: Pendientes (defecto) vs Historial */}
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    {/* Selector de Estado: 4 Estados Sincronizados con las Tarjetas Superiores */}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <button
                             type="button"
-                            onClick={() => setVistaActiva('pendientes')}
+                            onClick={() => seleccionarEstado('pendientes')}
                             style={{
-                                background: vistaActiva === 'pendientes' ? 'var(--dashboard-green)' : '#f4f8f6',
-                                color: vistaActiva === 'pendientes' ? '#ffffff' : 'var(--dashboard-ink)',
+                                background: estadoFiltro === 'pendientes' ? 'var(--dashboard-green)' : '#f4f8f6',
+                                color: estadoFiltro === 'pendientes' ? '#ffffff' : 'var(--dashboard-ink)',
                                 border: 'none',
                                 padding: '6px 14px',
                                 borderRadius: '20px',
@@ -321,6 +482,7 @@ export default function ConsultarTareasPendientes({
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
+                                transition: 'all 0.15s ease',
                             }}
                         >
                             <Clock size={14} />
@@ -328,10 +490,10 @@ export default function ConsultarTareasPendientes({
                         </button>
                         <button
                             type="button"
-                            onClick={() => setVistaActiva('completadas')}
+                            onClick={() => seleccionarEstado('mis_pendientes')}
                             style={{
-                                background: vistaActiva === 'completadas' ? 'var(--dashboard-green)' : '#f4f8f6',
-                                color: vistaActiva === 'completadas' ? '#ffffff' : 'var(--dashboard-ink)',
+                                background: estadoFiltro === 'mis_pendientes' ? 'var(--dashboard-green)' : '#f4f8f6',
+                                color: estadoFiltro === 'mis_pendientes' ? '#ffffff' : 'var(--dashboard-ink)',
                                 border: 'none',
                                 padding: '6px 14px',
                                 borderRadius: '20px',
@@ -341,14 +503,72 @@ export default function ConsultarTareasPendientes({
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
+                                transition: 'all 0.15s ease',
+                            }}
+                        >
+                            <UserIcon size={14} />
+                            Asignadas a mí ({misPendientesCount})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => seleccionarEstado('vencidas')}
+                            style={{
+                                background:
+                                    estadoFiltro === 'vencidas'
+                                        ? '#b91c1c'
+                                        : vencidasCount > 0
+                                        ? '#fef2f2'
+                                        : '#f4f8f6',
+                                color:
+                                    estadoFiltro === 'vencidas'
+                                        ? '#ffffff'
+                                        : vencidasCount > 0
+                                        ? '#b91c1c'
+                                        : 'var(--dashboard-ink)',
+                                border:
+                                    estadoFiltro === 'vencidas'
+                                        ? 'none'
+                                        : vencidasCount > 0
+                                        ? '1px solid #fecaca'
+                                        : 'none',
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                transition: 'all 0.15s ease',
+                            }}
+                        >
+                            <AlertTriangle size={14} />
+                            Vencidas ({vencidasCount})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => seleccionarEstado('completadas')}
+                            style={{
+                                background: estadoFiltro === 'completadas' ? 'var(--dashboard-green)' : '#f4f8f6',
+                                color: estadoFiltro === 'completadas' ? '#ffffff' : 'var(--dashboard-ink)',
+                                border: 'none',
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                transition: 'all 0.15s ease',
                             }}
                         >
                             <CheckSquare size={14} />
-                            Completadas ({totalCompletadas})
+                            Historial Completadas ({totalCompletadas})
                         </button>
                     </div>
 
-                    {/* Orden por Fecha de Vencimiento (Criterio 3) */}
+                    {/* Orden extensible según la vista activa (Criterio 3 y 4) */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <label
                             htmlFor="task-sort-select"
@@ -359,7 +579,7 @@ export default function ConsultarTareasPendientes({
                         <select
                             id="task-sort-select"
                             value={orden}
-                            onChange={(e) => setOrden(e.target.value as 'fechaVencimientoAsc' | 'fechaVencimientoDesc')}
+                            onChange={(e) => setOrden(e.target.value as TaskSortOption)}
                             style={{
                                 padding: '6px 10px',
                                 borderRadius: '6px',
@@ -370,13 +590,26 @@ export default function ConsultarTareasPendientes({
                                 fontWeight: 600,
                             }}
                         >
-                            <option value="fechaVencimientoAsc">Fecha de vencimiento (Más próximas primero)</option>
-                            <option value="fechaVencimientoDesc">Fecha de vencimiento (Más lejanas primero)</option>
+                            {vistaActiva === 'completadas' ? (
+                                <>
+                                    <option value="fechaCompletadaDesc">Completadas más recientemente</option>
+                                    <option value="fechaCompletadaAsc">Completadas más antiguas primero</option>
+                                    <option value="fechaVencimientoDesc">Fecha límite (más lejanas primero)</option>
+                                    <option value="fechaVencimientoAsc">Fecha límite (más próximas primero)</option>
+                                    <option value="titulo">Título de la tarea (A - Z)</option>
+                                </>
+                            ) : (
+                                <>
+                                    <option value="fechaVencimientoAsc">Fecha de vencimiento (Más próximas primero)</option>
+                                    <option value="fechaVencimientoDesc">Fecha de vencimiento (Más lejanas primero)</option>
+                                    <option value="titulo">Título de la tarea (A - Z)</option>
+                                </>
+                            )}
                         </select>
                     </div>
                 </div>
 
-                {/* Filtros OCP de Búsqueda y Responsable (Criterio 4) */}
+                {/* Filtros OCP de Búsqueda y Responsable (Criterio 2 y 4) */}
                 {showFilters && (
                     <div
                         style={{
@@ -400,7 +633,15 @@ export default function ConsultarTareasPendientes({
                                 type="text"
                                 value={busqueda}
                                 onChange={(e) => setBusqueda(e.target.value)}
-                                placeholder="Buscar por labor o descripción..."
+                                placeholder={
+                                    estadoFiltro === 'completadas'
+                                        ? 'Buscar en el historial de tareas completadas...'
+                                        : estadoFiltro === 'vencidas'
+                                        ? 'Buscar entre las tareas vencidas...'
+                                        : estadoFiltro === 'mis_pendientes'
+                                        ? 'Buscar entre mis tareas asignadas...'
+                                        : 'Buscar por labor o descripción...'
+                                }
                                 style={{
                                     width: '100%',
                                     padding: '8px 10px 8px 32px',
@@ -459,27 +700,45 @@ export default function ConsultarTareasPendientes({
                             width: '48px',
                             height: '48px',
                             borderRadius: '50%',
-                            background: '#f4f8f6',
+                            background: estadoFiltro === 'vencidas' ? '#fef2f2' : '#f4f8f6',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             margin: '0 auto 12px',
-                            color: 'var(--dashboard-green)',
+                            color: estadoFiltro === 'vencidas' ? '#b91c1c' : 'var(--dashboard-green)',
                         }}
                     >
-                        <CheckSquare size={24} />
+                        {estadoFiltro === 'vencidas' ? (
+                            <AlertTriangle size={24} />
+                        ) : estadoFiltro === 'mis_pendientes' ? (
+                            <UserIcon size={24} />
+                        ) : (
+                            <CheckSquare size={24} />
+                        )}
                     </div>
                     <h3 style={{ margin: '0 0 6px', fontSize: '18px', color: 'var(--dashboard-ink)' }}>
-                        {vistaActiva === 'pendientes'
+                        {busqueda.trim()
+                            ? 'No se encontraron tareas con los filtros aplicados'
+                            : estadoFiltro === 'pendientes'
                             ? 'No hay tareas pendientes en este momento'
+                            : estadoFiltro === 'mis_pendientes'
+                            ? 'No tienes tareas pendientes asignadas'
+                            : estadoFiltro === 'vencidas'
+                            ? '¡Al día! No hay tareas vencidas'
                             : 'No hay tareas completadas registradas'}
                     </h3>
-                    <p style={{ margin: '0 0 16px', fontSize: '14px', maxWidth: '420px', marginInline: 'auto' }}>
-                        {vistaActiva === 'pendientes'
+                    <p style={{ margin: '0 0 16px', fontSize: '14px', maxWidth: '440px', marginInline: 'auto' }}>
+                        {busqueda.trim()
+                            ? 'Intenta modificar el término de búsqueda o seleccionar otro estado de tareas.'
+                            : estadoFiltro === 'pendientes'
                             ? 'Todas las responsabilidades del hogar están al día. Puedes registrar una nueva tarea cuando sea necesario.'
-                            : 'Las tareas que vayas completando en la vivienda se archivarán aquí para consulta histórica.'}
+                            : estadoFiltro === 'mis_pendientes'
+                            ? '¡Excelente trabajo! No tienes labores pendientes asignadas bajo tu responsabilidad.'
+                            : estadoFiltro === 'vencidas'
+                            ? 'Ninguna actividad doméstica tiene fecha de vencimiento expirada en la vivienda.'
+                            : 'Las tareas que vayas completando en la vivienda se archivarán aquí automáticamente para su seguimiento histórico.'}
                     </p>
-                    {vistaActiva === 'pendientes' && onOpenCrearTareaModal && (
+                    {estadoFiltro !== 'completadas' && onOpenCrearTareaModal && (
                         <button
                             type="button"
                             onClick={onOpenCrearTareaModal}
@@ -506,7 +765,9 @@ export default function ConsultarTareasPendientes({
                                 <th style={{ width: '48px', textAlign: 'center', padding: '12px' }}>Estado</th>
                                 <th style={{ textAlign: 'left', padding: '12px' }}>Tarea y Descripción</th>
                                 <th style={{ textAlign: 'left', padding: '12px' }}>Responsable Asignado</th>
-                                <th style={{ textAlign: 'left', padding: '12px' }}>Fecha de Vencimiento</th>
+                                <th style={{ textAlign: 'left', padding: '12px' }}>
+                                    {vistaActiva === 'completadas' ? 'Fecha de Realización' : 'Fecha de Vencimiento'}
+                                </th>
                                 <th style={{ textAlign: 'right', padding: '12px' }}>Acción</th>
                             </tr>
                         </thead>
@@ -565,7 +826,7 @@ export default function ConsultarTareasPendientes({
                                                         fontSize: '14px',
                                                         color: 'var(--dashboard-ink)',
                                                         textDecoration: t.completada ? 'line-through' : 'none',
-                                                        opacity: t.completada ? 0.65 : 1,
+                                                        opacity: t.completada ? 0.75 : 1,
                                                     }}
                                                 >
                                                     {t.titulo}
@@ -604,69 +865,84 @@ export default function ConsultarTareasPendientes({
                                             </div>
                                         </td>
 
-                                        {/* Columna 4: Fecha de Vencimiento y Badge Relativo (Criterio 3) */}
+                                        {/* Columna 4: Fecha de Vencimiento / Realización y Badge de Estado (Criterio 3) */}
                                         <td style={{ padding: '12px' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--dashboard-ink)' }}>
-                                                    <Calendar size={14} color="var(--dashboard-green)" />
-                                                    <span>{t.fechaVencimiento}</span>
-                                                </div>
+                                                {t.completada ? (
+                                                    <>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#15803d' }}>
+                                                            <CheckCircle2 size={14} color="#15803d" />
+                                                            <span>Realizada: {t.fechaCompletada || t.fechaVencimiento}</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: 'var(--dashboard-muted)' }}>
+                                                            <Calendar size={12} />
+                                                            <span>Vencía: {t.fechaVencimiento}</span>
+                                                        </div>
+                                                        <span
+                                                            style={{
+                                                                fontSize: '11px',
+                                                                fontWeight: 600,
+                                                                color: '#15803d',
+                                                                background: '#f0fdf4',
+                                                                border: '1px solid #bbf7d0',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '12px',
+                                                                width: 'fit-content',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                            }}
+                                                        >
+                                                            <Check size={11} /> Completada
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: 'var(--dashboard-ink)' }}>
+                                                            <Calendar size={14} color="var(--dashboard-green)" />
+                                                            <span>{t.fechaVencimiento}</span>
+                                                        </div>
 
-                                                {!t.completada && badge && (
-                                                    <span
-                                                        style={{
-                                                            fontSize: '11px',
-                                                            fontWeight: 700,
-                                                            padding: '2px 8px',
-                                                            borderRadius: '12px',
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            width: 'fit-content',
-                                                            background:
-                                                                badge.type === 'vencida'
-                                                                    ? '#fef2f2'
-                                                                    : badge.type === 'hoy'
-                                                                    ? '#fffbeb'
-                                                                    : badge.type === 'proxima'
-                                                                    ? '#f0fdf4'
-                                                                    : '#f8fafc',
-                                                            color:
-                                                                badge.type === 'vencida'
-                                                                    ? '#b91c1c'
-                                                                    : badge.type === 'hoy'
-                                                                    ? '#b45309'
-                                                                    : badge.type === 'proxima'
-                                                                    ? '#15803d'
-                                                                    : '#475569',
-                                                            border:
-                                                                badge.type === 'vencida'
-                                                                    ? '1px solid #fecaca'
-                                                                    : badge.type === 'hoy'
-                                                                    ? '1px solid #fde68a'
-                                                                    : badge.type === 'proxima'
-                                                                    ? '1px solid #bbf7d0'
-                                                                    : '1px solid #e2e8f0',
-                                                        }}
-                                                    >
-                                                        {badge.label}
-                                                    </span>
-                                                )}
-
-                                                {t.completada && (
-                                                    <span
-                                                        style={{
-                                                            fontSize: '11px',
-                                                            fontWeight: 600,
-                                                            color: '#15803d',
-                                                            background: '#f0fdf4',
-                                                            border: '1px solid #bbf7d0',
-                                                            padding: '2px 8px',
-                                                            borderRadius: '12px',
-                                                            width: 'fit-content',
-                                                        }}
-                                                    >
-                                                        Completada
-                                                    </span>
+                                                        {badge && (
+                                                            <span
+                                                                style={{
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 700,
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '12px',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    width: 'fit-content',
+                                                                    background:
+                                                                        badge.type === 'vencida'
+                                                                            ? '#fef2f2'
+                                                                            : badge.type === 'hoy'
+                                                                            ? '#fffbeb'
+                                                                            : badge.type === 'proxima'
+                                                                            ? '#f0fdf4'
+                                                                            : '#f8fafc',
+                                                                    color:
+                                                                        badge.type === 'vencida'
+                                                                            ? '#b91c1c'
+                                                                            : badge.type === 'hoy'
+                                                                            ? '#b45309'
+                                                                            : badge.type === 'proxima'
+                                                                            ? '#15803d'
+                                                                            : '#475569',
+                                                                    border:
+                                                                        badge.type === 'vencida'
+                                                                            ? '1px solid #fecaca'
+                                                                            : badge.type === 'hoy'
+                                                                            ? '1px solid #fde68a'
+                                                                            : badge.type === 'proxima'
+                                                                            ? '1px solid #bbf7d0'
+                                                                            : '1px solid #e2e8f0',
+                                                                }}
+                                                            >
+                                                                {badge.label}
+                                                            </span>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         </td>
@@ -678,6 +954,7 @@ export default function ConsultarTareasPendientes({
                                                     type="button"
                                                     onClick={() => handleToggle(t)}
                                                     disabled={updatingTaskId === t.id}
+                                                    title="Reabrir tarea y devolverla al listado de pendientes"
                                                     style={{
                                                         background: '#ffffff',
                                                         color: 'var(--dashboard-green)',
@@ -692,7 +969,7 @@ export default function ConsultarTareasPendientes({
                                                         gap: '5px',
                                                     }}
                                                 >
-                                                    Reabrir
+                                                    Reabrir tarea
                                                 </button>
                                             ) : isMine ? (
                                                 <button
