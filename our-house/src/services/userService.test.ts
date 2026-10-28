@@ -44,6 +44,8 @@ import {
   getLocalProfile,
   getUserProfile,
   setLocalProfile,
+  setUserDwelling,
+  getUsersByIds,
   subscribeUserProfile,
   updateUserProfile,
   validateProfileData,
@@ -83,6 +85,15 @@ describe('userService', () => {
       ingresoMensual: 'El ingreso mensual no puede ser un valor negativo.',
       telefono: 'Ingresa un número telefónico válido (entre 7 y 15 dígitos).',
     });
+    expect(validateProfileData({ nombre: '', ingresoMensual: NaN })).toMatchObject({
+      isValid: false,
+      errors: { nombre: 'El nombre completo es requerido.', ingresoMensual: 'Ingresa un valor numérico válido para el ingreso mensual.' },
+    });
+    expect(validateProfileData({ nombre: 'A'.repeat(81), ingresoMensual: 1_000_000_001 })).toMatchObject({
+      isValid: false,
+      errors: { nombre: 'El nombre no puede exceder los 80 caracteres.', ingresoMensual: 'El monto ingresado excede el límite permitido.' },
+    });
+    expect(validateProfileData({ nombre: 'Ana', ingresoMensual: 0, telefono: '' }).isValid).toBe(true);
   });
 
   it('guarda y recupera el perfil del usuario desde localStorage', () => {
@@ -249,5 +260,48 @@ describe('userService', () => {
     await expect(
       updateUserProfile('user-9', { nombre: '', ingresoMensual: 1000 })
     ).rejects.toThrow('El nombre completo es requerido.');
+  });
+
+  it('crea perfiles por defecto cuando no existe remoto ni local y tolera fallos de escritura', async () => {
+    mockAuth.currentUser = { uid: 'u', displayName: null, email: null };
+    firestore.getDoc.mockResolvedValue({ exists: () => false });
+    firestore.setDoc.mockRejectedValueOnce(new Error('permission'));
+    await expect(getUserProfile('new-user')).resolves.toMatchObject({ id: 'new-user', nombre: 'Usuario', email: '' });
+    await expect(getUserProfile('')).resolves.toBeNull();
+    firestore.getDoc.mockRejectedValueOnce(new Error('offline'));
+    await expect(getUserProfile('fallback')).resolves.toMatchObject({ id: 'fallback' });
+  });
+
+  it('cubre ramas de actualización sin cambio de nombre y con fallos remotos', async () => {
+    mockAuth.currentUser = { uid: 'user-1', displayName: 'Ana', email: 'ana@demo.com' };
+    firestore.setDoc.mockRejectedValueOnce(new Error('offline'));
+    await expect(updateUserProfile('user-1', { nombre: 'Ana', ingresoMensual: 10 })).resolves.toMatchObject({
+      nombre: 'Ana', telefono: '',
+    });
+    mockAuth.currentUser = null;
+    await expect(updateUserProfile('user-2', { nombre: 'Luis', ingresoMensual: 20 })).resolves.toMatchObject({ id: 'user-2' });
+  });
+
+  it('sincroniza vivienda, valida suscripción vacía y procesa errores remotos', async () => {
+    await setUserDwelling('', 'v-1');
+    await setUserDwelling('user-5', null);
+    expect(firestore.setDoc).toHaveBeenCalled();
+    const updates: Array<unknown> = [];
+    expect(subscribeUserProfile('', (user) => updates.push(user))).toBeTypeOf('function');
+    expect(updates).toEqual([null]);
+    const onError = vi.fn();
+    const unsubscribe = subscribeUserProfile('user-5', (user) => updates.push(user), onError);
+    const callbacks = (firestore.onSnapshot as unknown as { mock: { calls: Array<[unknown, unknown, (error: Error & { code?: string }) => void]> } }).mock.calls;
+    callbacks.at(-1)?.[2]({ code: 'permission-denied', message: 'permission denied' } as Error & { code: string });
+    expect(onError).not.toHaveBeenCalled();
+    callbacks.at(-1)?.[2]({ code: 'other', message: 'boom' } as Error & { code: string });
+    expect(onError).toHaveBeenCalled();
+    unsubscribe();
+  });
+
+  it('obtiene usuarios por ids y omite identificadores vacíos o perfiles con error', async () => {
+    await expect(getUsersByIds([])).resolves.toEqual([]);
+    firestore.getDoc.mockRejectedValueOnce(new Error('offline'));
+    await expect(getUsersByIds(['bad'])).resolves.toHaveLength(1);
   });
 });

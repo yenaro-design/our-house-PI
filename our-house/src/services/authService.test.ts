@@ -9,6 +9,7 @@ const {
   setLocalProfileMock,
   signInWithEmailAndPasswordMock,
   updateProfileMock,
+  hasFirebaseConfigMock,
 } = vi.hoisted(() => ({
   authMock: { currentUser: null as { uid: string; displayName: string | null; email: string | null } | null },
   createUserWithEmailAndPasswordMock: vi.fn(),
@@ -18,6 +19,7 @@ const {
   docMock: vi.fn((...args: unknown[]) => args.join(':')),
   serverTimestampMock: vi.fn(() => 'server-timestamp'),
   setLocalProfileMock: vi.fn(),
+  hasFirebaseConfigMock: { value: true },
 }));
 
 vi.mock('firebase/auth', () => ({
@@ -35,7 +37,7 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('../firebase/config', () => ({
   auth: authMock,
   db: {},
-  hasFirebaseConfig: true,
+  get hasFirebaseConfig() { return hasFirebaseConfigMock.value; },
 }));
 
 vi.mock('./userService', () => ({
@@ -122,5 +124,27 @@ describe('authService', () => {
       displayName: 'demo',
     });
     expect(localStorage.getItem('our_house_active_session')).toContain('"displayName":"demo"');
+  });
+
+  it('crea sesión local sin configuración y tolera fallos al actualizar perfil remoto', async () => {
+    hasFirebaseConfigMock.value = false;
+    await expect(registerUser('  Carla ', ' CARLA@demo.com ', 'pass')).resolves.toMatchObject({
+      email: 'carla@demo.com',
+      displayName: 'Carla',
+    });
+    hasFirebaseConfigMock.value = true;
+    createUserWithEmailAndPasswordMock.mockResolvedValue({ user: { uid: 'u-1', email: null } });
+    updateProfileMock.mockRejectedValueOnce(new Error('profile'));
+    setDocMock.mockRejectedValueOnce(new Error('permission'));
+    await expect(registerUser('Diego', 'd@demo.com', 'pass')).resolves.toMatchObject({ uid: 'u-1' });
+  });
+
+  it('propaga errores no recuperables y usa fallback para errores de red', async () => {
+    signInWithEmailAndPasswordMock.mockRejectedValueOnce({ code: 'auth/wrong-password' });
+    await expect(loginUser('user@demo.com', 'bad')).rejects.toMatchObject({ code: 'auth/wrong-password' });
+    signInWithEmailAndPasswordMock.mockRejectedValueOnce({ code: 'auth/network-request-failed' });
+    await expect(loginUser(' Other@Demo.com ', 'pass')).resolves.toMatchObject({ email: 'other@demo.com', displayName: 'other' });
+    createUserWithEmailAndPasswordMock.mockRejectedValueOnce({ code: 'auth/network-request-failed' });
+    await expect(registerUser('Eva', 'E@demo.com', 'pass')).resolves.toMatchObject({ displayName: 'Eva' });
   });
 });
