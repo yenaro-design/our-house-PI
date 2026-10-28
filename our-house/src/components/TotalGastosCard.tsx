@@ -30,7 +30,7 @@ export default function TotalGastosCard({ expenses }: Props) {
     );
 
     return (
-        <section aria-labelledby="total-gastos-titulo" className="saldo-consolidado-card">
+        <section aria-labelledby="total-gastos-titulo" className="saldo-consolidado-card total-gastos-periodo-card">
             <div className="saldo-consolidado-card-header">
                 <div>
                     <span className="saldo-consolidado-card-kicker">Resumen de la vivienda</span>
@@ -44,11 +44,11 @@ export default function TotalGastosCard({ expenses }: Props) {
                 <strong>{formatCOP(resumen.total)}</strong>
             </div>
 
-            <div className="saldo-consolidado-card-footer">
-                <small>
+            <div className="saldo-consolidado-card-footer total-gastos-periodo-footer">
+                <small className="total-gastos-periodo-caption">
                     {resumen.cantidad} {resumen.cantidad === 1 ? 'gasto registrado' : 'gastos registrados'} en el periodo.
                 </small>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label className="total-gastos-periodo-picker">
                     <CalendarDays size={15} aria-hidden="true" />
                     <input
                         type="month"

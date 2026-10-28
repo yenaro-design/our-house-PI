@@ -56,7 +56,10 @@ export async function obtenerTareasPorVivienda(viviendaId: string): Promise<Task
             const map = new Map<string, Task>();
             remoteTasks.forEach((t) => map.set(t.id, t));
             local.forEach((t) => {
-                if (!map.has(t.id)) map.set(t.id, t);
+                const remote = map.get(t.id);
+                if (!remote || (t.updatedAt && (!remote.updatedAt || t.updatedAt > remote.updatedAt))) {
+                    map.set(t.id, t);
+                }
             });
             return Array.from(map.values()).sort(
                 (a, b) => new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()
@@ -553,6 +556,7 @@ export async function actualizarTarea(datos: ActualizarTareaInput): Promise<Task
     const cleanDescripcion = datos.descripcion?.trim() || '';
     const cleanResponsableId = datos.responsableId.trim();
     const cleanResponsableNombre = datos.responsableNombre?.trim() || 'Integrante';
+    const updatedAt = new Date().toISOString();
 
     const local = getLocalTasks();
     const idx = local.findIndex((t) => t.id === datos.tareaId);
@@ -571,6 +575,7 @@ export async function actualizarTarea(datos: ActualizarTareaInput): Promise<Task
         responsableId: cleanResponsableId,
         responsableNombre: cleanResponsableNombre,
         fechaVencimiento: cleanFecha,
+        updatedAt,
     };
 
     if (idx !== -1) {

@@ -462,6 +462,30 @@
   color: #a45240;
 }
 
+.dashboard-task-state-vencida {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.dashboard-task-state-hoy {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.dashboard-task-state-proxima {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.dashboard-task-state-futura {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
 .dashboard-task-state-scheduled {
   background: #e8eee9;
   color: var(--dashboard-green);
@@ -534,9 +558,34 @@
   }
 }
 
+@media (max-width: 640px) {
+  .dashboard-saldo-detail-heading,
+  .total-gastos-periodo-card {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dashboard-saldo-detail-heading {
+    align-items: stretch;
+  }
+
+  .dashboard-saldo-detail-action {
+    align-self: flex-start;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .dashboard-primary-action {
+  .dashboard-primary-action,
+  .saldo-consolidado-card,
+  .saldo-consolidado-card-dropdown summary,
+  .saldo-consolidado-card-dropdown[open] .saldo-consolidado-card-details,
+  .dashboard-saldo-detail-panel,
+  .dashboard-saldo-detail-action,
+  .total-gastos-periodo-card,
+  .total-gastos-periodo-picker input {
     transition: none;
+    animation: none;
   }
 }
 
@@ -762,6 +811,12 @@
   font-size: 11px;
   font-weight: 800;
   list-style: none;
+  transition: color 0.2s ease, padding-left 0.2s ease;
+}
+
+.saldo-consolidado-card-dropdown summary:hover {
+  color: var(--dashboard-coral);
+  padding-left: 4px;
 }
 
 .saldo-consolidado-card-dropdown summary::-webkit-details-marker {
@@ -782,6 +837,145 @@
   gap: 9px 18px;
   margin: 0 0 4px;
   padding-bottom: 2px;
+}
+
+.saldo-consolidado-card-dropdown[open] .saldo-consolidado-card-details {
+  animation: dashboard-detail-reveal 0.22s ease-out;
+}
+
+.dashboard-saldo-detail-panel {
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid #dce8e2;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 5px 18px rgba(32, 48, 43, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.dashboard-saldo-detail-panel:hover {
+  box-shadow: 0 8px 24px rgba(32, 48, 43, 0.08);
+}
+
+.dashboard-saldo-detail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 10px;
+}
+
+.dashboard-saldo-detail-heading .dashboard-eyebrow {
+  margin: 0 0 5px;
+}
+
+.dashboard-saldo-detail-heading h3 {
+  margin: 0;
+  color: var(--dashboard-ink);
+  font-size: 17px;
+}
+
+.dashboard-saldo-detail-heading p {
+  margin: 5px 0 0;
+  color: var(--dashboard-muted);
+  font-size: 12px;
+}
+
+.dashboard-saldo-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0 24px;
+}
+
+.dashboard-saldo-detail-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  border: 1px solid #c8dcd2;
+  border-radius: 7px;
+  padding: 8px 11px;
+  background: #f0f6f3;
+  color: var(--dashboard-green);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.dashboard-saldo-detail-action:hover {
+  border-color: var(--dashboard-green);
+  background: #e1efe4;
+  transform: translateY(-1px);
+}
+
+.dashboard-expenses-period-summary {
+  margin-bottom: 20px;
+}
+
+.total-gastos-periodo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.8fr);
+  gap: 20px;
+  align-items: center;
+  padding: 18px 20px;
+  border: 1px solid #dce8e2;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 5px 18px rgba(32, 48, 43, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.total-gastos-periodo-card:hover {
+  box-shadow: 0 8px 24px rgba(32, 48, 43, 0.08);
+}
+
+.total-gastos-periodo-card .saldo-consolidado-card-header,
+.total-gastos-periodo-card .saldo-consolidado-card-hero {
+  margin: 0;
+}
+
+.total-gastos-periodo-card .saldo-consolidado-card-hero {
+  padding: 14px 16px;
+}
+
+.total-gastos-periodo-footer {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--dashboard-line);
+}
+
+.total-gastos-periodo-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dashboard-green);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.total-gastos-periodo-picker input {
+  border: 1px solid #c8dcd2;
+  border-radius: 6px;
+  padding: 5px 7px;
+  background: #f8faf5;
+  color: var(--dashboard-ink);
+  font: inherit;
+  font-weight: 600;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.total-gastos-periodo-picker input:focus {
+  border-color: var(--dashboard-green);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(53, 107, 89, 0.12);
+}
+
+@keyframes dashboard-detail-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .saldo-consolidado-card-details div {
