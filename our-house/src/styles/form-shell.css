@@ -1,0 +1,297 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@400;600;700&display=swap');
+
+:root {
+  --form-ink: #20302b;
+  --form-muted: #71807a;
+  --form-paper: #fffdf8;
+  --form-panel: #ffffff;
+  --form-surface: #f4f8f6;
+  --form-line: #dfe8e1;
+  --form-border: #cddcd2;
+  --form-green: #356b59;
+  --form-green-dark: #1d3d34;
+  --form-coral: #d4775e;
+  --form-success: #15803d;
+  --form-success-soft: #f0fdf4;
+  --form-error: #b91c1c;
+  --form-error-soft: #fef2f2;
+  --form-shadow: 0 18px 40px rgba(32, 48, 43, 0.08);
+}
+
+.form-panel {
+  max-width: 560px;
+  margin: 40px auto;
+  padding: clamp(24px, 4vw, 32px);
+  background: var(--form-panel);
+  border: 1px solid var(--form-line);
+  border-radius: 18px;
+  box-shadow: var(--form-shadow);
+  text-align: left;
+  box-sizing: border-box;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.form-panel:hover {
+  box-shadow: 0 20px 50px rgba(32, 48, 43, 0.12);
+}
+
+.form-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  color: var(--form-green);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.form-back-link:hover {
+  color: var(--form-coral);
+  transform: translateX(-2px);
+}
+
+.form-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.form-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(53, 107, 89, 0.09);
+  color: var(--form-green);
+  border: 1px solid rgba(53, 107, 89, 0.12);
+}
+
+.form-title {
+  margin: 0;
+  color: var(--form-ink);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.8rem, 2vw, 2.2rem);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.form-subtitle {
+  margin: 0 0 24px;
+  color: var(--form-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.form-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--form-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.form-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--form-border);
+  border-radius: 10px;
+  background: #fffefc;
+  color: var(--form-ink);
+  font-size: 15px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.form-input:hover {
+  border-color: #9cb7a8;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--form-green);
+  box-shadow: 0 0 0 4px rgba(53, 107, 89, 0.12);
+  background: #ffffff;
+}
+
+.form-input--code {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.28rem;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.form-button,
+.form-button-secondary,
+.form-button-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.form-button {
+  background: linear-gradient(180deg, var(--form-green-dark) 0%, var(--form-green) 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 20px rgba(53, 107, 89, 0.16);
+}
+
+.form-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(53, 107, 89, 0.2);
+}
+
+.form-button-secondary {
+  background: var(--form-surface);
+  border-color: rgba(53, 107, 89, 0.22);
+  color: var(--form-green);
+}
+
+.form-button-secondary:hover:not(:disabled),
+.form-button-ghost:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.form-button-ghost {
+  background: #ffffff;
+  border-color: var(--form-border);
+  color: var(--form-ink);
+}
+
+.form-button:disabled,
+.form-button-secondary:disabled,
+.form-button-ghost:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+}
+
+.form-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(53, 107, 89, 0.18);
+  background: var(--form-surface);
+  color: #3f564d;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.form-info-box strong {
+  color: var(--form-ink);
+}
+
+.form-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.form-alert--error {
+  background: var(--form-error-soft);
+  border: 1px solid #fecaca;
+  color: var(--form-error);
+}
+
+.form-alert--success {
+  background: var(--form-success-soft);
+  border: 1px solid #bbf7d0;
+  color: var(--form-success);
+}
+
+.form-success-box {
+  padding: 24px;
+  background: var(--form-surface);
+  border: 1px solid rgba(53, 107, 89, 0.2);
+  border-radius: 14px;
+  text-align: center;
+}
+
+.form-success-box h3 {
+  margin: 0 0 8px;
+  color: var(--form-ink);
+  font-size: 20px;
+}
+
+.form-success-box p {
+  margin: 0 0 18px;
+  color: var(--form-muted);
+  font-size: 14px;
+}
+
+.form-code-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: #ffffff;
+  border: 2px dashed var(--form-green);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: inset 0 0 0 1px rgba(53, 107, 89, 0.08);
+}
+
+.form-code-pill span {
+  color: var(--form-green);
+  font-size: clamp(1.3rem, 3vw, 1.9rem);
+  font-weight: 800;
+  letter-spacing: 0.22rem;
+  font-family: 'Inter', monospace;
+}
+
+.form-inline-row {
+  display: flex;
+  gap: 10px;
+}
+
+.form-inline-row .form-input {
+  flex: 1;
+}
+
+@media (max-width: 520px) {
+  .form-panel {
+    margin: 24px 16px;
+    padding: 20px 18px;
+  }
+
+  .form-inline-row {
+    flex-direction: column;
+  }
+}

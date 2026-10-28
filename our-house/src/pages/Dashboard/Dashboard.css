@@ -52,6 +52,13 @@
   gap: 28px;
 }
 
+.dashboard-nav-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
 .dashboard-nav-link {
   position: relative;
   display: flex;
