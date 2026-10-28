@@ -1413,7 +1413,7 @@ function Dashboard() {
                     }}
                   />
                 </div>
-                <SaldoConsolidadoCard expenses={expenses} payments={payments} userId={user?.uid ?? ""} onVerDesglose={() => setDesgloseObjetivo({ tipo: "saldo" })} />
+                <SaldoConsolidadoCard expenses={expenses} payments={payments} debts={debts} userId={user?.uid ?? ""} onVerDesglose={() => setDesgloseObjetivo({ tipo: "saldo" })} />
                   <TotalGastosCard expenses={expenses} />
               </article>
 

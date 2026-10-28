@@ -1,12 +1,13 @@
 ﻿import { useMemo } from 'react';
 import { ArrowUpRight, CheckCircle2, ChevronDown, HandCoins, Receipt, WalletCards } from 'lucide-react';
 import type { Expense } from '../models/Expense';
-import type { DebtPayment } from '../models/Debt';
-import { calcularResumenSaldo, type ResumenSaldo } from '../services/saldoService';
+import type { Debt, DebtPayment } from '../models/Debt';
+import { calcularDetalleDeudas, calcularResumenSaldo, type ResumenSaldo } from '../services/saldoService';
 
 interface Props {
     expenses: Expense[]; // los mismos gastos que ya carga el Dashboard
     payments?: DebtPayment[]; // los mismos pagos de deudas que ya carga el Dashboard
+    debts?: Debt[]; // HU24: las mismas deudas que ya carga el Dashboard, para el detalle por persona
     userId: string;
     onVerDesglose?: () => void; // HU16: abre el desglose de movimientos del saldo
 }
@@ -30,11 +31,15 @@ const MENSAJE_ESTADO: Record<ResumenSaldo['estado'], string> = {
  * actualiza solo cuando se registra, edita o elimina un gasto (criterio 5)
  * y nunca muestra una cifra distinta a la del resto de la pantalla.
  */
-export default function SaldoConsolidadoCard({ expenses, payments = [], userId, onVerDesglose }: Props) {
+export default function SaldoConsolidadoCard({ expenses, payments = [], debts = [], userId, onVerDesglose }: Props) {
     const resumen = useMemo(
         () => calcularResumenSaldo(expenses, userId, payments),
         [expenses, payments, userId]
     );
+
+    // HU24: detalle de a quién le debo y quién me debe, con las deudas del Dashboard
+    const detalle = useMemo(() => calcularDetalleDeudas(debts, userId), [debts, userId]);
+    const hayDetalle = detalle.debo.length > 0 || detalle.meDeben.length > 0;
 
     const estadoClase = `saldo-consolidado-card-${resumen.estado}`;
     const iconoEstado =
@@ -84,6 +89,22 @@ export default function SaldoConsolidadoCard({ expenses, payments = [], userId, 
                     <div><dt>Pagos que recibiste</dt><dd>{formatCOP(resumen.pagosRecibidos)}</dd></div>
                 </dl>
             </details>
+                        {hayDetalle && (
+                <details className="saldo-consolidado-card-dropdown">
+                    <summary>
+                        <span>Ver deudas y valores a favor por persona</span>
+                        <ChevronDown size={16} aria-hidden="true" />
+                    </summary>
+                    <dl className="saldo-consolidado-card-details">
+                        {detalle.debo.map((p) => (
+                            <div key={`debo-${p.personaId}`}><dt>Le debes a {p.nombre}</dt><dd>{formatCOP(p.monto)}</dd></div>
+                        ))}
+                        {detalle.meDeben.map((p) => (
+                            <div key={`me-deben-${p.personaId}`}><dt>{p.nombre} te debe</dt><dd>{formatCOP(p.monto)}</dd></div>
+                        ))}
+                    </dl>
+                </details>
+            )}
 
             <div className="saldo-consolidado-card-footer">
                 <small>Calculado con {resumen.cantidadGastos} {resumen.cantidadGastos === 1 ? 'gasto registrado' : 'gastos registrados'}.</small>
