@@ -166,7 +166,14 @@ describe('userService', () => {
       ingresoMensual: 0,
     });
 
-    const onNext = firestore.onSnapshot.mock.calls[0]?.[1] as (snapshot: any) => void;
+    const onNext = firestore.onSnapshot.mock.calls[0]?.[1] as (snapshot: {
+      exists: () => boolean;
+      data: () => {
+        nombre: string;
+        ingresoMensual: number;
+        telefono: string;
+      };
+    }) => void;
     onNext({
       exists: () => true,
       data: () => ({
