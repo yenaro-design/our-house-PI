@@ -155,19 +155,7 @@ function Login() {
               onClick={handleDemoLogin}
               disabled={loading}
               id="btn-login-demo"
-              style={{
-                marginTop: "10px",
-                width: "100%",
-                padding: "10px 14px",
-                background: "rgba(229, 239, 229, 0.5)",
-                border: "1px dashed var(--login-green, #234338)",
-                borderRadius: "8px",
-                color: "var(--login-green, #234338)",
-                fontSize: "13px",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-              }}
+              className="login-demo-button"
             >
               Probar con cuenta de demostración
             </button>

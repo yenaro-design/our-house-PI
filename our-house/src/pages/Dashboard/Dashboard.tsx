@@ -913,44 +913,39 @@ function Dashboard() {
         <nav className="dashboard-nav" aria-label="Navegación principal">
           <button
             type="button"
-            className={`dashboard-nav-link ${activeTab === "resumen" ? "dashboard-nav-link-active" : ""}`}
+            className={`dashboard-nav-button dashboard-nav-link ${activeTab === "resumen" ? "dashboard-nav-link-active" : ""}`}
             onClick={() => cambiarTab("resumen")}
-            style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Resumen
           </button>
           <button
             type="button"
-            className={`dashboard-nav-link ${activeTab === "gastos" ? "dashboard-nav-link-active" : ""}`}
+            className={`dashboard-nav-button dashboard-nav-link ${activeTab === "gastos" ? "dashboard-nav-link-active" : ""}`}
             onClick={() => cambiarTab("gastos")}
-            style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Gastos ({expenses.length})
           </button>
           <button
             type="button"
-            className={`dashboard-nav-link ${activeTab === "deudas" ? "dashboard-nav-link-active" : ""}`}
+            className={`dashboard-nav-button dashboard-nav-link ${activeTab === "deudas" ? "dashboard-nav-link-active" : ""}`}
             onClick={() => cambiarTab("deudas")}
-            style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Deudas y Pagos ({debts.filter((d) => d.estado !== "liquidada").length})
           </button>
           <button
             type="button"
-            className={`dashboard-nav-link ${activeTab === "integrantes" ? "dashboard-nav-link-active" : ""}`}
+            className={`dashboard-nav-button dashboard-nav-link ${activeTab === "integrantes" ? "dashboard-nav-link-active" : ""}`}
             onClick={() => cambiarTab("integrantes")}
-            style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Integrantes ({members.length})
           </button>
           <button
             type="button"
-            className={`dashboard-nav-link ${activeTab === "tareas" ? "dashboard-nav-link-active" : ""}`}
+            className={`dashboard-nav-button dashboard-nav-link ${activeTab === "tareas" ? "dashboard-nav-link-active" : ""}`}
             onClick={() => {
               setVistaTareasInicial("pendientes");
               cambiarTab("tareas");
             }}
-            style={{ background: "none", border: "none", cursor: "pointer" }}
           >
             Tareas ({tasks.filter((t) => !t.completada).length})
           </button>
@@ -1067,28 +1062,17 @@ function Dashboard() {
           <div
             role="alert"
             aria-live="assertive"
-            style={{
-              color: "#b91c1c",
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              padding: "14px 18px",
-              borderRadius: "10px",
-              marginBottom: "24px",
-              fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "10px",
-            }}
+            className="status-banner status-banner--error"
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div className="status-banner__content">
               <AlertCircle size={20} style={{ flexShrink: 0 }} />
               <span>{actionError}</span>
             </div>
             <button
               type="button"
               onClick={() => setActionError(null)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#b91c1c" }}
+              className="status-banner__close"
+              aria-label="Cerrar mensaje de error"
             >
               <X size={16} />
             </button>
@@ -1096,29 +1080,16 @@ function Dashboard() {
         )}
 
         {actionSuccess && (
-          <div
-            style={{
-              color: "#15803d",
-              background: "#f0fdf4",
-              border: "1px solid #bbf7d0",
-              padding: "14px 18px",
-              borderRadius: "10px",
-              marginBottom: "24px",
-              fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "10px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div className="status-banner status-banner--success" aria-live="polite">
+            <div className="status-banner__content">
               <CheckCircle2 size={20} style={{ flexShrink: 0 }} />
               <span>{actionSuccess}</span>
             </div>
             <button
               type="button"
               onClick={() => setActionSuccess(null)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#15803d" }}
+              className="status-banner__close"
+              aria-label="Cerrar mensaje de éxito"
             >
               <X size={16} />
             </button>
