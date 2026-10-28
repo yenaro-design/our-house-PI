@@ -72,6 +72,7 @@ import type { Task } from "../../models/Task";
 import type { Debt, DebtPayment } from "../../models/Debt";
 import "./Dashboard.css";
 import SaldoConsolidadoCard from "../../components/SaldoConsolidadoCard";
+import TotalGastosCard from "../../components/TotalGastosCard";
 import DesgloseMovimientosModal, { type ObjetivoDesglose } from "../../components/DesgloseMovimientosModal";
 
 function Dashboard() {
@@ -1384,6 +1385,7 @@ function Dashboard() {
                   />
                 </div>
                 <SaldoConsolidadoCard expenses={expenses} payments={payments} userId={user?.uid ?? ""} onVerDesglose={() => setDesgloseObjetivo({ tipo: "saldo" })} />
+                  <TotalGastosCard expenses={expenses} />
               </article>
 
               {/* Card 2: Gastos Totales */}
