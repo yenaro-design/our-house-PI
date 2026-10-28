@@ -1,5 +1,5 @@
 import type { Expense } from '../models/Expense';
-import type { DebtPayment } from '../models/Debt';
+import type { Debt, DebtPayment } from '../models/Debt';
 import type { User } from '../models/User';
 import { calcularSaldosConsolidados, obtenerGastosPorVivienda } from './expenseService';
 import { obtenerPagosPorVivienda } from './debtService';
@@ -82,3 +82,60 @@ export async function obtenerResumenSaldo(
     ]);
     return calcularResumenSaldo(gastos, userId, pagos);
 }
+/**---------------------------------------------------------------------------------------------------------------------------------------
+ * HU24 — Detalle de deudas y valores a favor del usuario.
+ *
+ * Agrupa por persona lo que le queda pendiente a cada deuda (ya con los
+ * abonos descontados). Como el saldo consolidado sale de las mismas cuotas y
+ * pagos, siempre se cumple:
+ *   totalMeDeben - totalDebo = saldo consolidado (calcularResumenSaldo)
+ *-------------------------------------------------------------------------------------------------------------------------------*/
+export interface DetallePersona {
+    personaId: string;
+    nombre: string;
+    monto: number;    
+    cantidad: number; 
+}
+
+export interface DetalleDeudas {
+    debo: DetallePersona[];     
+    meDeben: DetallePersona[];  
+    totalDebo: number;
+    totalMeDeben: number;
+}
+
+export function calcularDetalleDeudas(deudas: Debt[], userId: string): DetalleDeudas {
+    const debo = new Map<string, DetallePersona>();
+    const meDeben = new Map<string, DetallePersona>();
+
+    const sumar = (mapa: Map<string, DetallePersona>, personaId: string, nombre: string, monto: number) => {
+        const actual = mapa.get(personaId);
+        if (actual) {
+            actual.monto += monto;
+            actual.cantidad += 1;
+        } else {
+            mapa.set(personaId, { personaId, nombre, monto, cantidad: 1 });
+        }
+    };
+
+    for (const d of deudas) {
+        if (d.estado === 'liquidada' || d.saldoPendiente <= 0) continue;
+        if (d.deudorId === userId) sumar(debo, d.acreedorId, d.acreedorNombre, d.saldoPendiente);
+        else if (d.acreedorId === userId) sumar(meDeben, d.deudorId, d.deudorNombre, d.saldoPendiente);
+    }
+
+    const ordenar = (mapa: Map<string, DetallePersona>) =>
+        Array.from(mapa.values()).sort((a, b) => b.monto - a.monto);
+    const total = (lista: DetallePersona[]) => lista.reduce((acc, x) => acc + x.monto, 0);
+
+    const listaDebo = ordenar(debo);
+    const listaMeDeben = ordenar(meDeben);
+
+    return {
+        debo: listaDebo,
+        meDeben: listaMeDeben,
+        totalDebo: total(listaDebo),
+        totalMeDeben: total(listaMeDeben),
+    };
+}
+
