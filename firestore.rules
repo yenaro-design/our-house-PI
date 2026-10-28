@@ -281,22 +281,41 @@ service cloud.firestore {
         );
 
       allow update: if autenticado()
-        && esIntegrante(
-          resource.data.viviendaId
-        )
-        && request.resource.data.id == resource.data.id
-        && request.resource.data.viviendaId
-          == resource.data.viviendaId
-        && request.resource.data.diff(resource.data)
-          .affectedKeys()
-          .hasOnly([
-            'completada',
-            'estado',
-            'fechaCompletada'
-          ])
-        && request.resource.data.completada is bool;
+        && (
+          (
+            esIntegrante(
+              resource.data.viviendaId
+            )
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.viviendaId
+              == resource.data.viviendaId
+            && request.resource.data.diff(resource.data)
+              .affectedKeys()
+              .hasOnly([
+                'completada',
+                'estado',
+                'fechaCompletada'
+              ])
+            && request.resource.data.completada is bool
+          )
+          ||
+          (
+            esAdministrador(
+              resource.data.viviendaId
+            )
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.viviendaId
+              == resource.data.viviendaId
+            && tareaValida(
+              request.resource.data
+            )
+          )
+        );
 
-      allow delete: if false;
+      allow delete: if autenticado()
+        && esAdministrador(
+          resource.data.viviendaId
+        );
     }
   }
 }
