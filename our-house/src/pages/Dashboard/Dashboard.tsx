@@ -48,11 +48,14 @@ import {
 import {
   obtenerTareasPorVivienda,
   crearTarea,
+  eliminarTarea,
   completarTarea,
   toggleCompletarTarea,
   filtrarYOrdenarTareas,
   getDueDateBadge,
 } from "../../services/taskService";
+import EditarTareaModal from "../../components/EditarTareaModal";
+import ConfirmarEliminarTareaModal from "../../components/ConfirmarEliminarTareaModal";
 import {
   sincronizarDeudasDesdeGastos,
   obtenerPagosPorVivienda,
@@ -97,6 +100,8 @@ function Dashboard() {
   const [desgloseObjetivo, setDesgloseObjetivo] = useState<ObjetivoDesglose | null>(null);
 
   const [tareaACompletar, setTareaACompletar] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskPendingDeletion, setTaskPendingDeletion] = useState<Task | null>(null);
   const [vistaTareasInicial, setVistaTareasInicial] = useState<"pendientes" | "completadas">("pendientes");
 
   // Filters State (HU12)
@@ -509,6 +514,54 @@ function Dashboard() {
     } finally {
       setEliminandoGastoId(null);
     }
+  };
+
+  const handleSolicitarEditarTarea = (task: Task) => {
+    if (!dwelling || !user || dwelling.administradorId !== user.uid) {
+      setActionError("Solo el administrador de la vivienda puede editar tareas.");
+      setTimeout(() => setActionError(null), 3500);
+      return;
+    }
+    setActionError(null);
+    setEditingTask(task);
+  };
+
+  const handleSolicitarEliminarTarea = (task: Task) => {
+    if (!dwelling || !user || dwelling.administradorId !== user.uid) {
+      setActionError("Solo el administrador de la vivienda puede eliminar tareas.");
+      setTimeout(() => setActionError(null), 3500);
+      return;
+    }
+    setActionError(null);
+    setTaskPendingDeletion(task);
+  };
+
+  const handleConfirmarEliminarTarea = async (task: Task) => {
+    if (!dwelling || !user || dwelling.administradorId !== user.uid) return;
+
+    try {
+      await eliminarTarea({
+        tareaId: task.id,
+        viviendaId: dwelling.id,
+        usuarioId: user.uid,
+        administradorId: dwelling.administradorId,
+      });
+
+      setTasks((prev) => prev.filter((t) => t.id !== task.id));
+      setActionSuccess(`Tarea "${task.titulo}" eliminada correctamente.`);
+      setTimeout(() => setActionSuccess(null), 3500);
+    } catch (err: unknown) {
+      console.error("Error al eliminar tarea:", err);
+      setActionError(err instanceof Error ? err.message : "No se pudo eliminar la tarea.");
+    } finally {
+      setTaskPendingDeletion(null);
+    }
+  };
+
+  const handleTaskUpdated = (updatedTask: Task) => {
+    setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+    setActionSuccess(`Tarea "${updatedTask.titulo}" actualizada exitosamente.`);
+    setTimeout(() => setActionSuccess(null), 3500);
   };
 
   const handleSolicitarCompletarTarea = (task: Task) => {
@@ -2502,6 +2555,7 @@ function Dashboard() {
               viviendaId={dwelling ? dwelling.id : ""}
               viviendaNombre={dwelling?.nombre}
               currentUserId={user?.uid}
+              administradorId={dwelling?.administradorId}
               members={members}
               tasks={tasks}
               initialView={vistaTareasInicial}
@@ -2511,6 +2565,8 @@ function Dashboard() {
                 setActionError(null);
                 setModalTareaOpen(true);
               }}
+              onEditarTask={handleSolicitarEditarTarea}
+              onEliminarTask={handleSolicitarEliminarTarea}
             />
           </section>
         )}
@@ -3121,6 +3177,28 @@ function Dashboard() {
           task={tareaACompletar}
           onClose={() => setTareaACompletar(null)}
           onConfirm={handleConfirmarCompletarTarea}
+        />
+      )}
+
+      
+      {/* HU: Modales de edición y confirmación de eliminación de tareas */}
+      {editingTask && dwelling && (
+        <EditarTareaModal
+          isOpen={Boolean(editingTask)}
+          task={editingTask}
+          administradorId={dwelling.administradorId}
+          members={members}
+          onClose={() => setEditingTask(null)}
+          onTaskUpdated={handleTaskUpdated}
+        />
+      )}
+
+      {taskPendingDeletion && (
+        <ConfirmarEliminarTareaModal
+          isOpen={Boolean(taskPendingDeletion)}
+          task={taskPendingDeletion}
+          onClose={() => setTaskPendingDeletion(null)}
+          onConfirm={handleConfirmarEliminarTarea}
         />
       )}
 

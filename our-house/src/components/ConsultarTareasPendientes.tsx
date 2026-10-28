@@ -12,6 +12,8 @@ import {
     Plus,
     Check,
     AlertTriangle,
+    Pencil,
+    Trash2,
 } from 'lucide-react';
 import type { Task } from '../models/Task';
 import type { User } from '../models/User';
@@ -37,11 +39,14 @@ export interface ConsultarTareasPendientesProps {
     viviendaId: string;
     viviendaNombre?: string;
     currentUserId?: string;
+    administradorId?: string;
     members?: User[];
     tasks: Task[];
     onToggleTask: (taskId: string, current: boolean) => Promise<void>;
     onSolicitarCompletarTask?: (task: Task) => void;
     onOpenCrearTareaModal?: () => void;
+    onEditarTask?: (task: Task) => void;
+    onEliminarTask?: (task: Task) => void;
     // Puntos de extensión para Principio Abierto/Cerrado (OCP)
     customFilter?: TaskFilterPredicate;
     customSort?: TaskSortComparator;
@@ -53,11 +58,14 @@ export default function ConsultarTareasPendientes({
     viviendaId,
     viviendaNombre,
     currentUserId,
+    administradorId,
     members = [],
     tasks,
     onToggleTask,
     onSolicitarCompletarTask,
     onOpenCrearTareaModal,
+    onEditarTask,
+    onEliminarTask,
     customFilter,
     customSort,
     showFilters = true,
@@ -74,6 +82,7 @@ export default function ConsultarTareasPendientes({
         initialView === 'completadas' ? 'fechaCompletadaDesc' : 'fechaVencimientoAsc'
     );
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+    const esAdministrador = Boolean(currentUserId && administradorId && currentUserId === administradorId);
     const [mensajeFeedback, setMensajeFeedback] = useState<string | null>(null);
 
     // Selección interactiva de estado entre las 4 tarjetas principales
@@ -938,70 +947,120 @@ export default function ConsultarTareasPendientes({
                                             </div>
                                         </td>
 
-                                        {/* Columna 5: Botón Rápido de Acción */}
-                                        <td style={{ textAlign: 'right', padding: '12px' }}>
-                                            {t.completada ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleToggle(t)}
-                                                    disabled={updatingTaskId === t.id}
-                                                    title="Reabrir tarea y devolverla al listado de pendientes"
-                                                    style={{
-                                                        background: '#ffffff',
-                                                        color: 'var(--dashboard-green)',
-                                                        border: '1px solid var(--dashboard-green)',
-                                                        padding: '6px 12px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '12px',
-                                                        fontWeight: 600,
-                                                        cursor: 'pointer',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '5px',
-                                                    }}
-                                                >
-                                                    Reabrir tarea
-                                                </button>
-                                            ) : isMine ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleToggle(t)}
-                                                    disabled={updatingTaskId === t.id}
-                                                    style={{
-                                                        background: 'var(--dashboard-green)',
-                                                        color: '#ffffff',
-                                                        border: 'none',
-                                                        padding: '6px 12px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '12px',
-                                                        fontWeight: 600,
-                                                        cursor: 'pointer',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '5px',
-                                                    }}
-                                                >
-                                                    <Check size={13} /> Marcar hecha
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleToggle(t)}
-                                                    style={{
-                                                        background: 'none',
-                                                        color: 'var(--dashboard-muted)',
-                                                        border: '1px dashed #cbd5e1',
-                                                        padding: '6px 12px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '12px',
-                                                        cursor: 'not-allowed',
-                                                        opacity: 0.65,
-                                                    }}
-                                                    title={`Asignada a ${t.responsableNombre || 'otro integrante'}`}
-                                                >
-                                                    Solo responsable
-                                                </button>
-                                            )}
+                                        {/* Columna 5: Acciones (Editar/Eliminar para Admin y Toggle de Completado) */}
+                                        <td style={{ textAlign: 'right', padding: '12px', whiteSpace: 'nowrap' }}>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                                {esAdministrador && onEditarTask && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onEditarTask(t)}
+                                                        disabled={updatingTaskId === t.id}
+                                                        title="Editar tarea doméstica"
+                                                        style={{
+                                                            background: '#fffaf0',
+                                                            border: '1px solid #f0d9a6',
+                                                            color: '#9a6700',
+                                                            padding: '6px 10px',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '12px',
+                                                            fontWeight: 600,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                        }}
+                                                    >
+                                                        <Pencil size={13} /> Editar
+                                                    </button>
+                                                )}
+
+                                                {esAdministrador && onEliminarTask && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onEliminarTask(t)}
+                                                        disabled={updatingTaskId === t.id}
+                                                        title="Eliminar tarea doméstica"
+                                                        style={{
+                                                            background: '#fff5f5',
+                                                            border: '1px solid #feb2b2',
+                                                            color: '#b91c1c',
+                                                            padding: '6px 10px',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '12px',
+                                                            fontWeight: 600,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                        }}
+                                                    >
+                                                        <Trash2 size={13} /> Eliminar
+                                                    </button>
+                                                )}
+
+                                                {t.completada ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggle(t)}
+                                                        disabled={updatingTaskId === t.id}
+                                                        title="Reabrir tarea y devolverla al listado de pendientes"
+                                                        style={{
+                                                            background: '#ffffff',
+                                                            color: 'var(--dashboard-green)',
+                                                            border: '1px solid var(--dashboard-green)',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            fontSize: '12px',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '5px',
+                                                        }}
+                                                    >
+                                                        Reabrir
+                                                    </button>
+                                                ) : isMine ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggle(t)}
+                                                        disabled={updatingTaskId === t.id}
+                                                        style={{
+                                                            background: 'var(--dashboard-green)',
+                                                            color: '#ffffff',
+                                                            border: 'none',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            fontSize: '12px',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '5px',
+                                                        }}
+                                                    >
+                                                        <Check size={13} /> Marcar hecha
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggle(t)}
+                                                        style={{
+                                                            background: 'none',
+                                                            color: 'var(--dashboard-muted)',
+                                                            border: '1px dashed #cbd5e1',
+                                                            padding: '6px 10px',
+                                                            borderRadius: '6px',
+                                                            fontSize: '12px',
+                                                            cursor: 'not-allowed',
+                                                            opacity: 0.65,
+                                                        }}
+                                                        title={`Asignada a ${t.responsableNombre || 'otro integrante'}`}
+                                                    >
+                                                        Solo responsable
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 );

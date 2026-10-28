@@ -1,5 +1,6 @@
 import {
     collection,
+    deleteDoc,
     doc,
     getDocs,
     query,
@@ -295,7 +296,7 @@ export async function crearTarea(datos: {
         throw new Error('Debes asignar la tarea a un integrante específico de la vivienda.');
     }
 
-    const taskId = 'tarea-' + Date.now();
+    const taskId = 'tarea-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const nuevaTarea: Task = {
         id: taskId,
         viviendaId: datos.viviendaId,
@@ -485,3 +486,138 @@ export function getDueDateBadge(fechaVencimientoStr: string): DueDateBadgeInfo {
     }
 }
 
+
+export interface ActualizarTareaInput {
+    tareaId: string;
+    viviendaId: string;
+    usuarioId: string;
+    administradorId: string;
+    titulo: string;
+    descripcion?: string;
+    responsableId: string;
+    responsableNombre?: string;
+    fechaVencimiento: string;
+}
+
+/**
+ * Valida los datos requeridos antes de guardar o actualizar una tarea.
+ * Lanza un Error con el mensaje descriptivo si los datos no son válidos.
+ */
+export function validarDatosTarea(datos: {
+    viviendaId?: string;
+    titulo?: string;
+    fechaVencimiento?: string;
+    responsableId?: string;
+}): void {
+    if (!datos.viviendaId || !datos.viviendaId.trim()) {
+        throw new Error('Debes pertenecer a una vivienda para gestionar tareas.');
+    }
+    if (!datos.titulo || !datos.titulo.trim()) {
+        throw new Error('El título de la tarea es obligatorio.');
+    }
+    if (!datos.fechaVencimiento || !datos.fechaVencimiento.trim()) {
+        throw new Error('Debes establecer una fecha límite o programada para la tarea.');
+    }
+    const fecha = new Date(`${datos.fechaVencimiento.trim()}T00:00:00`);
+    if (isNaN(fecha.getTime())) {
+        throw new Error('La fecha límite o programada no tiene un formato válido.');
+    }
+    if (!datos.responsableId || !datos.responsableId.trim()) {
+        throw new Error('Debes asignar la tarea a un integrante específico de la vivienda.');
+    }
+}
+
+/**
+ * Modificar la información de una tarea existente.
+ * Solo el administrador de la vivienda puede ejecutar esta acción.
+ */
+export async function actualizarTarea(datos: ActualizarTareaInput): Promise<Task> {
+    if (!datos.usuarioId || datos.usuarioId !== datos.administradorId) {
+        throw new Error('Solo el administrador de la vivienda puede editar las tareas.');
+    }
+
+    if (!datos.tareaId || !datos.tareaId.trim()) {
+        throw new Error('La tarea seleccionada no es válida.');
+    }
+
+    // Validación de datos antes de guardar modificación (Criterio 3)
+    validarDatosTarea({
+        viviendaId: datos.viviendaId,
+        titulo: datos.titulo,
+        fechaVencimiento: datos.fechaVencimiento,
+        responsableId: datos.responsableId,
+    });
+
+    const cleanTitulo = datos.titulo.trim();
+    const cleanFecha = datos.fechaVencimiento.trim();
+    const cleanDescripcion = datos.descripcion?.trim() || '';
+    const cleanResponsableId = datos.responsableId.trim();
+    const cleanResponsableNombre = datos.responsableNombre?.trim() || 'Integrante';
+
+    const local = getLocalTasks();
+    const idx = local.findIndex((t) => t.id === datos.tareaId);
+
+    const tareaExistente = idx !== -1 ? local[idx] : null;
+    const tareaActualizada: Task = {
+        ...(tareaExistente || {
+            completada: false,
+            estado: 'pendiente' as const,
+            createdAt: new Date().toISOString(),
+        }),
+        id: datos.tareaId,
+        viviendaId: datos.viviendaId,
+        titulo: cleanTitulo,
+        descripcion: cleanDescripcion,
+        responsableId: cleanResponsableId,
+        responsableNombre: cleanResponsableNombre,
+        fechaVencimiento: cleanFecha,
+    };
+
+    if (idx !== -1) {
+        local[idx] = tareaActualizada;
+    } else {
+        local.push(tareaActualizada);
+    }
+    saveLocalTasks(local);
+
+    try {
+        const docRef = doc(db, 'tasks', datos.tareaId);
+        await setDoc(docRef, tareaActualizada, { merge: true });
+    } catch (err) {
+        console.warn('Aviso al actualizar tarea en Firestore:', err);
+    }
+
+    return tareaActualizada;
+}
+
+export interface EliminarTareaInput {
+    tareaId: string;
+    viviendaId: string;
+    usuarioId: string;
+    administradorId: string;
+}
+
+/**
+ * Eliminar una tarea cuando sea necesario.
+ * Solo el administrador de la vivienda puede ejecutar esta acción.
+ */
+export async function eliminarTarea(datos: EliminarTareaInput): Promise<void> {
+    if (!datos.usuarioId || datos.usuarioId !== datos.administradorId) {
+        throw new Error('Solo el administrador de la vivienda puede eliminar tareas.');
+    }
+
+    if (!datos.tareaId || !datos.tareaId.trim()) {
+        throw new Error('La tarea seleccionada no es válida.');
+    }
+
+    const local = getLocalTasks();
+    const nuevasTareas = local.filter((t) => t.id !== datos.tareaId);
+    saveLocalTasks(nuevasTareas);
+
+    try {
+        const docRef = doc(db, 'tasks', datos.tareaId);
+        await deleteDoc(docRef);
+    } catch (err) {
+        console.warn('Aviso al eliminar tarea en Firestore:', err);
+    }
+}
