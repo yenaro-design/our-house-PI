@@ -26,6 +26,8 @@ import {
   Sparkles,
   HandCoins,
   Receipt,
+  ChevronDown,
+  ArrowUpRight,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -53,6 +55,8 @@ import {
   toggleCompletarTarea,
   filtrarYOrdenarTareas,
   getDueDateBadge,
+  PREDICADO_TAREAS_COMPLETADAS,
+  PREDICADO_TAREAS_PENDIENTES,
 } from "../../services/taskService";
 import EditarTareaModal from "../../components/EditarTareaModal";
 import ConfirmarEliminarTareaModal from "../../components/ConfirmarEliminarTareaModal";
@@ -74,6 +78,7 @@ import "./Dashboard.css";
 import SaldoConsolidadoCard from "../../components/SaldoConsolidadoCard";
 import TotalGastosCard from "../../components/TotalGastosCard";
 import DesgloseMovimientosModal, { type ObjetivoDesglose } from "../../components/DesgloseMovimientosModal";
+import { calcularDetalleDeudas, calcularResumenSaldo } from "../../services/saldoService";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -311,10 +316,21 @@ function Dashboard() {
       .reduce((sum, d) => sum + d.saldoPendiente, 0);
   }, [debts, user]);
 
+  const resumenSaldo = useMemo(
+    () => (user ? calcularResumenSaldo(expenses, user.uid, payments) : null),
+    [expenses, payments, user]
+  );
+
+  const detalleDeudas = useMemo(
+    () => (user ? calcularDetalleDeudas(debts, user.uid) : null),
+    [debts, user]
+  );
+
   // Tareas pendientes de la vivienda organizadas por fecha de vencimiento (HU: Consultar tareas pendientes)
   const tareasPendientesHogar = useMemo(() => {
     if (!dwelling) return [];
-    return filtrarYOrdenarTareas(tasks, {
+    const tareasDeLaVivienda = tasks.filter((task) => task.viviendaId === dwelling.id);
+    return filtrarYOrdenarTareas(tareasDeLaVivienda, {
       estado: "pendientes",
       orden: "fechaVencimientoAsc",
     });
@@ -948,7 +964,7 @@ function Dashboard() {
               cambiarTab("tareas");
             }}
           >
-            Tareas ({tasks.filter((t) => !t.completada).length})
+            Tareas ({tasks.filter(PREDICADO_TAREAS_PENDIENTES).length})
           </button>
           <Link className="dashboard-nav-link" to="/profile">
             Mi Perfil
@@ -1384,8 +1400,7 @@ function Dashboard() {
                     }}
                   />
                 </div>
-                <SaldoConsolidadoCard expenses={expenses} payments={payments} debts={debts} userId={user?.uid ?? ""} onVerDesglose={() => setDesgloseObjetivo({ tipo: "saldo" })} />
-                  <TotalGastosCard expenses={expenses} />
+                <SaldoConsolidadoCard expenses={expenses} payments={payments} userId={user?.uid ?? ""} />
               </article>
 
               {/* Card 2: Gastos Totales */}
@@ -1446,7 +1461,7 @@ function Dashboard() {
                   <span>Tareas Pendientes</span>
                   <span className="dashboard-stat-icon">✓</span>
                 </div>
-                <strong style={{ fontSize: "28px", margin: "14px 0 6px" }}>{tasks.filter((t) => !t.completada).length}</strong>
+                <strong style={{ fontSize: "28px", margin: "14px 0 6px" }}>{tasks.filter(PREDICADO_TAREAS_PENDIENTES).length}</strong>
                 <p style={{ margin: "auto 0 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span
                     onClick={(e) => {
@@ -1457,7 +1472,7 @@ function Dashboard() {
                     style={{ textDecoration: "underline", cursor: "pointer" }}
                     title="Consultar historial de tareas completadas"
                   >
-                    {tasks.filter((t) => t.completada).length} completadas
+                    {tasks.filter(PREDICADO_TAREAS_COMPLETADAS).length} completadas
                   </span>
                   <span
                     onClick={(e) => {
@@ -1559,7 +1574,7 @@ function Dashboard() {
                       style={{ background: "none", border: "none", color: "var(--dashboard-muted)", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
                       title="Ver historial de tareas completadas"
                     >
-                      Historial completadas ({tasks.filter((t) => t.completada).length})
+                      Historial completadas ({tasks.filter(PREDICADO_TAREAS_COMPLETADAS).length})
                     </button>
                     <button
                       type="button"
@@ -1621,35 +1636,7 @@ function Dashboard() {
                           </div>
                           {badge && (
                             <span
-                              className="dashboard-task-state dashboard-task-state-pending"
-                              style={{
-                                marginLeft: "auto",
-                                background:
-                                  badge.type === "vencida"
-                                    ? "#fef2f2"
-                                    : badge.type === "hoy"
-                                    ? "#fffbeb"
-                                    : badge.type === "proxima"
-                                    ? "#f0fdf4"
-                                    : "#f8fafc",
-                                color:
-                                  badge.type === "vencida"
-                                    ? "#b91c1c"
-                                    : badge.type === "hoy"
-                                    ? "#b45309"
-                                    : badge.type === "proxima"
-                                    ? "#15803d"
-                                    : "#475569",
-                                border:
-                                  badge.type === "vencida"
-                                    ? "1px solid #fecaca"
-                                    : badge.type === "hoy"
-                                    ? "1px solid #fde68a"
-                                    : badge.type === "proxima"
-                                    ? "1px solid #bbf7d0"
-                                    : "1px solid #e2e8f0",
-                                fontWeight: 700,
-                              }}
+                              className={`dashboard-task-state dashboard-task-state-${badge.type}`}
                             >
                               {badge.label}
                             </span>
@@ -1749,6 +1736,10 @@ function Dashboard() {
               >
                 <Plus size={16} /> Registrar nuevo gasto
               </button>
+            </div>
+
+            <div className="dashboard-expenses-period-summary">
+              <TotalGastosCard expenses={expenses} />
             </div>
 
             {/* Filtros Avanzados (HU12) */}
@@ -2048,6 +2039,59 @@ function Dashboard() {
                 </p>
               </div>
             </div>
+
+            {resumenSaldo && detalleDeudas && (
+              <section
+                aria-labelledby="detalle-saldo-deudas-titulo"
+                className="dashboard-saldo-detail-panel"
+              >
+                <div className="dashboard-saldo-detail-heading">
+                  <div>
+                    <span className="dashboard-eyebrow">Resumen personal</span>
+                    <h3 id="detalle-saldo-deudas-titulo">Detalle de tu saldo</h3>
+                    <p>Consulta cómo se compone tu saldo y qué movimientos lo han generado.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="dashboard-saldo-detail-action"
+                    onClick={() => setDesgloseObjetivo({ tipo: "saldo" })}
+                  >
+                    <Receipt size={15} /> Ver movimientos <ArrowUpRight size={15} />
+                  </button>
+                </div>
+                <div className="dashboard-saldo-detail-grid">
+                  <details className="saldo-consolidado-card-dropdown">
+                    <summary>
+                      <span>Ver detalle de pagos y cuotas</span>
+                      <ChevronDown size={16} aria-hidden="true" />
+                    </summary>
+                    <dl className="saldo-consolidado-card-details">
+                      <div><dt>Total que pagaste</dt><dd>{formatCOP(resumenSaldo.totalPagado)}</dd></div>
+                      <div><dt>Total de tus cuotas</dt><dd>{formatCOP(resumenSaldo.totalCuotas)}</dd></div>
+                      <div><dt>Pagos que realizaste</dt><dd>{formatCOP(resumenSaldo.pagosRealizados)}</dd></div>
+                      <div><dt>Pagos que recibiste</dt><dd>{formatCOP(resumenSaldo.pagosRecibidos)}</dd></div>
+                    </dl>
+                  </details>
+
+                  {(detalleDeudas.debo.length > 0 || detalleDeudas.meDeben.length > 0) && (
+                    <details className="saldo-consolidado-card-dropdown">
+                      <summary>
+                        <span>Ver deudas y valores a favor por persona</span>
+                        <ChevronDown size={16} aria-hidden="true" />
+                      </summary>
+                      <dl className="saldo-consolidado-card-details">
+                        {detalleDeudas.debo.map((p) => (
+                          <div key={`debo-${p.personaId}`}><dt>Le debes a {p.nombre}</dt><dd>{formatCOP(p.monto)}</dd></div>
+                        ))}
+                        {detalleDeudas.meDeben.map((p) => (
+                          <div key={`me-deben-${p.personaId}`}><dt>{p.nombre} te debe</dt><dd>{formatCOP(p.monto)}</dd></div>
+                        ))}
+                      </dl>
+                    </details>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* Filter Bar */}
             <div className="dashboard-filter-bar" style={{ marginBottom: "20px" }}>

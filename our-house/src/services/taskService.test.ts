@@ -90,6 +90,25 @@ describe('taskService', () => {
     await expect(obtenerTareasPendientesPorUsuario('v-1', 'ana')).resolves.toHaveLength(1);
   });
 
+  it('conserva una edición local más reciente que la copia remota al recargar', async () => {
+    const updatedAt = '2026-03-05T12:00:00.000Z';
+    localStorage.setItem('our_house_tasks', JSON.stringify([
+      task({ titulo: 'Comprar pan actualizado', updatedAt }),
+    ]));
+    firestore.getDocs.mockResolvedValueOnce({
+      empty: false,
+      forEach: (cb: (doc: { id: string; data: () => Partial<Task> }) => void) =>
+        cb({
+          id: 't-1',
+          data: () => ({ ...task(), titulo: 'Comprar pan antiguo' }),
+        }),
+    });
+
+    const tareas = await obtenerTareasPorVivienda('v-1');
+
+    expect(tareas.find((t) => t.id === 't-1')?.titulo).toBe('Comprar pan actualizado');
+  });
+
   it('completa una tarea existente y crea un documento cuando Firestore reporta not-found', async () => {
     localStorage.setItem('our_house_tasks', JSON.stringify([task()]));
     firestore.updateDoc.mockResolvedValueOnce(undefined);

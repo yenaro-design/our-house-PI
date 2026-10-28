@@ -11,6 +11,7 @@ export interface Task {
   completada: boolean;
   estado?: TaskEstado;
   createdAt?: string;
+  updatedAt?: string;
   fechaCompletada?: string;
 }
 
