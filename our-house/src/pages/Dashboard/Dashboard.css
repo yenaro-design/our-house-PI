@@ -266,6 +266,8 @@
 .dashboard-stat-featured {
   border-color: #bdd5c3;
   background: var(--dashboard-sage);
+  display: flex;
+  flex-direction: column;
 }
 
 .dashboard-stat-topline {
@@ -625,8 +627,8 @@
 .saldo-consolidado-card {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
-  gap: 18px;
+  flex: 1 1 auto;
+  gap: 14px;
   color: var(--dashboard-ink);
 }
 
@@ -793,31 +795,40 @@
 .saldo-consolidado-card-details dd { font-weight: 700; text-align: right; }
 
 .saldo-consolidado-card-footer {
-  align-items: end;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: auto;
-  padding-top: 2px;
+  padding-top: 6px;
 }
 
 .saldo-consolidado-card-footer small {
-  max-width: 145px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
   color: var(--dashboard-muted);
-  font-size: 10px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .saldo-consolidado-card-action {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 8px 10px;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 6px 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   background: var(--dashboard-ink);
   color: #fff;
   cursor: pointer;
   font: inherit;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .saldo-consolidado-card-action:hover { background: var(--dashboard-green); }
