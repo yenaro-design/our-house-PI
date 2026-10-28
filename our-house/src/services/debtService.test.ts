@@ -37,7 +37,11 @@ describe('debtService', () => {
         participantes: ['ana', 'bruno'], fecha: '2026-01-01', cuotas: { ana: 50000, bruno: 50000 } },
       { id: 'g-2', viviendaId: 'v-1', concepto: 'Luz', monto: 60000, pagadorId: 'ana',
         participantes: ['ana', 'carla'], fecha: '2026-02-01', cuotas: { ana: 30000, carla: 30000 } },
-    ], [{ id: 'ana', nombre: 'Ana', email: 'a' }, { id: 'bruno', nombre: 'Bruno', email: 'b' }, { id: 'carla', nombre: 'Carla', email: 'c' }]);
+    ], [
+      { id: 'ana', nombre: 'Ana', email: 'a', ingresoMensual: 0 },
+      { id: 'bruno', nombre: 'Bruno', email: 'b', ingresoMensual: 0 },
+      { id: 'carla', nombre: 'Carla', email: 'c', ingresoMensual: 0 },
+    ]);
     expect(result.map((d) => d.id)).toEqual(['deuda-g-2-carla', 'deuda-g-1-bruno']);
     expect(result[1].estado).toBe('liquidada');
   });
