@@ -166,14 +166,30 @@ describe('userService', () => {
       ingresoMensual: 0,
     });
 
-    const onNext = firestore.onSnapshot.mock.calls[0]?.[1] as (snapshot: {
+    type SnapshotLike = {
       exists: () => boolean;
       data: () => {
         nombre: string;
         ingresoMensual: number;
         telefono: string;
       };
-    }) => void;
+    };
+
+    const onSnapshotMock = firestore.onSnapshot as unknown as {
+      mock: {
+        calls: Array<[
+          unknown,
+          (snapshot: SnapshotLike) => void,
+          ((error: Error) => void)?
+        ]>;
+      };
+    };
+
+    const onNext = onSnapshotMock.mock.calls[0]?.[1];
+    if (!onNext) {
+      throw new Error('No se registró el callback de snapshot de Firestore');
+    }
+
     onNext({
       exists: () => true,
       data: () => ({
