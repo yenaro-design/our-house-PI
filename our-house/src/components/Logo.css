@@ -1,0 +1,87 @@
+.our-house-logo-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.our-house-logo-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  border-radius: 12px;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.our-house-logo-link:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+
+.our-house-logo-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f4f8f5 100%);
+  padding: 3px;
+  box-shadow: 0 4px 14px rgba(32, 48, 43, 0.08), 0 1px 3px rgba(32, 48, 43, 0.04);
+  border: 1px solid rgba(212, 119, 94, 0.22);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.our-house-logo-link:hover .our-house-logo-icon-box {
+  border-color: rgba(212, 119, 94, 0.5);
+  box-shadow: 0 6px 20px rgba(212, 119, 94, 0.16), 0 2px 6px rgba(32, 48, 43, 0.06);
+}
+
+.our-house-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.our-house-logo-text-group {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.our-house-logo-brandname {
+  font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--app-primary, #20302b);
+  transition: color 0.15s ease;
+}
+
+.our-house-logo-link:hover .our-house-logo-brandname {
+  color: var(--app-primary-strong, #356b59);
+}
+
+.our-house-logo-subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--app-muted, #64766d);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Size specific typography */
+.our-house-logo--sm .our-house-logo-brandname {
+  font-size: 15px;
+}
+
+.our-house-logo--md .our-house-logo-brandname {
+  font-size: 18px;
+}
+
+.our-house-logo--lg .our-house-logo-brandname {
+  font-size: 22px;
+}
+
+.our-house-logo--xl .our-house-logo-brandname {
+  font-size: 28px;
+}

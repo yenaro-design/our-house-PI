@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { registerUser } from "../../services/authService";
+import Logo from "../../components/Logo";
 import "./Register.css";
 
 function Register() {
@@ -100,17 +101,40 @@ function Register() {
   return (
     <main className="register-page">
       <section className="register-aside" aria-labelledby="register-intro-title">
-        <Link className="register-brand" to="/login" aria-label="Our House">
-          <span className="register-brand-mark">OH</span>
-          <span>our house</span>
-        </Link>
+        <div className="register-brand-container">
+          <Logo to="/login" size="md" subtitle="Tu nuevo espacio" ariaLabel="Our House" />
+        </div>
 
         <div className="register-intro">
           <p className="register-eyebrow">Tu vivienda, en orden</p>
           <h1 id="register-intro-title">Una casa compartida funciona mejor cuando todos saben qué sigue.</h1>
           <p className="register-intro-copy">
-            Centraliza gastos, saldos y tareas domésticas en un solo lugar.
+            Centraliza gastos, saldos y tareas domésticas en un solo lugar amigable y pensado para la convivencia.
           </p>
+
+          <div className="register-steps-preview">
+            <div className="register-step-item">
+              <span className="register-step-badge">1</span>
+              <div>
+                <strong>Crea o únete a tu hogar</strong>
+                <p>En segundos y con un código de invitación seguro.</p>
+              </div>
+            </div>
+            <div className="register-step-item">
+              <span className="register-step-badge">2</span>
+              <div>
+                <strong>Aportes y gastos justos</strong>
+                <p>Repartición proporcional al ingreso o equitativa.</p>
+              </div>
+            </div>
+            <div className="register-step-item">
+              <span className="register-step-badge">3</span>
+              <div>
+                <strong>Armonía y tranquilidad</strong>
+                <p>Todo el equipo del hogar sincronizado al día.</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="register-note">

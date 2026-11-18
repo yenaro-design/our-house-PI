@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Home, ArrowLeft, CheckCircle2, AlertCircle, Copy, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { crearVivienda } from '../services/dwellingService';
+import Logo from './Logo';
 import '../styles/form-shell.css';
 
 function CrearViviendaForm() {
@@ -57,9 +58,12 @@ function CrearViviendaForm() {
 
   return (
     <section id="crear-vivienda" className="form-panel">
-      <Link to="/dashboard" className="form-back-link">
-        <ArrowLeft size={16} /> Volver al Dashboard
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+        <Link to="/dashboard" className="form-back-link" style={{ marginBottom: 0 }}>
+          <ArrowLeft size={16} /> Volver al Dashboard
+        </Link>
+        <Logo to="/dashboard" size="sm" showText={false} />
+      </div>
 
       <div className="form-header">
         <div className="form-header-icon">
