@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { buscarViviendaPorCodigo, unirseAVivienda } from '../services/dwellingService';
 import { guardarIngresoMensual } from '../services/ingresoService';
 import type { Dwelling } from '../models/Dwelling';
+import Logo from './Logo';
 
 function UnirseViviendaForm() {
     const navigate = useNavigate();
@@ -99,21 +100,23 @@ function UnirseViviendaForm() {
                 boxSizing: 'border-box',
             }}
         >
-            <Link
-                to="/dashboard"
-                style={{
-                    color: '#356b59',
-                    textDecoration: 'none',
-                    fontWeight: 600,
-                    fontSize: '14px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    marginBottom: '18px',
-                }}
-            >
-                <ArrowLeft size={16} /> Volver al Dashboard
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+                <Link
+                    to="/dashboard"
+                    style={{
+                        color: '#356b59',
+                        textDecoration: 'none',
+                        fontWeight: 600,
+                        fontSize: '14px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                    }}
+                >
+                    <ArrowLeft size={16} /> Volver al Dashboard
+                </Link>
+                <Logo to="/dashboard" size="sm" showText={false} />
+            </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                 <div

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Receipt, CheckSquare, HandCoins } from "lucide-react";
 import { loginUser } from "../../services/authService";
+import Logo from "../../components/Logo";
 import "./Login.css";
 
 function Login() {
@@ -85,15 +87,35 @@ function Login() {
   return (
     <main className="login-page">
       <section className="login-story" aria-labelledby="login-story-title">
-        <Link className="login-brand" to="/login" aria-label="Our House, inicio de sesión">
-          <span className="login-brand-mark">OH</span>
-          <span>our house</span>
-        </Link>
+        <div className="login-brand-container">
+          <Logo to="/login" size="md" subtitle="Convivencia Inteligente" ariaLabel="Our House, inicio de sesión" />
+        </div>
 
         <div className="login-story-copy">
           <p className="login-eyebrow">Bienvenido de vuelta</p>
           <h1 id="login-story-title">Vuelve a poner tu casa en común.</h1>
           <p>Consulta lo que está pendiente, lo que ya se pagó y lo que toca hacer hoy.</p>
+
+          <div className="login-story-features">
+            <div className="login-story-feature-pill">
+              <span className="login-feature-icon" aria-hidden="true">
+                <Receipt size={16} />
+              </span>
+              <span>División transparente de gastos comunes</span>
+            </div>
+            <div className="login-story-feature-pill">
+              <span className="login-feature-icon" aria-hidden="true">
+                <CheckSquare size={16} />
+              </span>
+              <span>Tareas del hogar coordinadas sin líos</span>
+            </div>
+            <div className="login-story-feature-pill">
+              <span className="login-feature-icon" aria-hidden="true">
+                <HandCoins size={16} />
+              </span>
+              <span>Cuentas claras y saldos al día</span>
+            </div>
+          </div>
         </div>
 
         <div className="login-story-line" aria-hidden="true">

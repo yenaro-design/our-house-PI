@@ -22,6 +22,7 @@ import {
   DoorOpen,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import Logo from "../../components/Logo";
 import {
   updateUserProfile,
   validateProfileData,
@@ -293,14 +294,7 @@ function Profile() {
     return (
       <main className="profile-page">
         <header className="profile-header">
-          <Link
-            className="profile-brand"
-            to="/"
-            aria-label="Our House, página principal"
-          >
-            <span className="profile-brand-mark">OH</span>
-            <span>our house</span>
-          </Link>
+          <Logo to="/" size="sm" ariaLabel="Our House, página principal" />
         </header>
 
         <div className="profile-container">
@@ -347,14 +341,7 @@ function Profile() {
     <main className="profile-page">
       {/* Header superior */}
       <header className="profile-header">
-        <Link
-          className="profile-brand"
-          to="/dashboard"
-          aria-label="Our House, ir al panel principal"
-        >
-          <span className="profile-brand-mark">OH</span>
-          <span>our house</span>
-        </Link>
+        <Logo to="/dashboard" size="sm" ariaLabel="Our House, ir al panel principal" />
 
         <nav className="profile-nav" aria-label="Navegación principal">
           <Link className="profile-nav-link" to="/dashboard">

@@ -74,6 +74,7 @@ import type { User } from "../../models/User";
 import type { Expense } from "../../models/Expense";
 import type { Task } from "../../models/Task";
 import type { Debt, DebtPayment } from "../../models/Debt";
+import Logo from "../../components/Logo";
 import "./Dashboard.css";
 import SaldoConsolidadoCard from "../../components/SaldoConsolidadoCard";
 import TotalGastosCard from "../../components/TotalGastosCard";
@@ -922,10 +923,7 @@ function Dashboard() {
     <main className="dashboard-page">
       {/* Header */}
       <header className="dashboard-header">
-        <Link className="dashboard-brand" to="/dashboard" aria-label="Our House, página principal">
-          <span className="dashboard-brand-mark">OH</span>
-          <span>our house</span>
-        </Link>
+        <Logo to="/dashboard" size="sm" ariaLabel="Our House, página principal" />
 
         <nav className="dashboard-nav" aria-label="Navegación principal">
           <button
@@ -1113,75 +1111,84 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Empty State: Usuario sin vivienda vinculada */}
+        {/* Onboarding y bienvenida amigable para usuarios nuevos sin vivienda */}
         {!dwelling && (
-          <div
-            style={{
-              background: "#ffffff",
-              padding: "40px 32px",
-              borderRadius: "16px",
-              border: "1px solid #dce8e2",
-              textAlign: "center",
-              marginBottom: "32px",
-            }}
-          >
-            <Home size={44} color="var(--dashboard-green)" style={{ margin: "0 auto 16px" }} />
-            <h2 style={{ fontSize: "24px", color: "var(--dashboard-ink)", margin: "0 0 10px" }}>
-              ¡Hola, {firstName}! Aún no perteneces a una vivienda
-            </h2>
-            <p style={{ color: "var(--dashboard-muted)", fontSize: "15px", maxWidth: "560px", margin: "0 auto 24px" }}>
-              Para gestionar gastos compartidos, calcular cuotas proporcionales y coordinar tareas del hogar, crea un nuevo espacio o únete con un código.
-            </p>
+          <div className="dashboard-welcome-onboarding">
+            <div className="dashboard-welcome-header">
+              <div className="dashboard-welcome-logo-badge">
+                <Logo size="lg" showText={false} />
+              </div>
+              <span className="dashboard-welcome-tag">Bienvenido a Our House</span>
+              <h2 className="dashboard-welcome-title">
+                ¡Hola, {firstName}! Empecemos a organizar tu hogar
+              </h2>
+              <p className="dashboard-welcome-desc">
+                Con Our House puedes centralizar los gastos comunes de la vivienda, calcular cuotas
+                justas según ingresos y coordinar las tareas del día a día sin enredos.
+              </p>
+            </div>
 
-            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "12px" }}>
-              <Link
-                to="/crear-vivienda"
-                style={{
-                  background: "var(--dashboard-green)",
-                  color: "#ffffff",
-                  padding: "12px 24px",
-                  borderRadius: "8px",
-                  textDecoration: "none",
-                  fontWeight: 600,
-                  fontSize: "15px",
-                }}
-              >
-                Crear nueva vivienda
-              </Link>
-              <Link
-                to="/unirse-vivienda"
-                style={{
-                  background: "#ffffff",
-                  color: "var(--dashboard-green)",
-                  border: "1px solid var(--dashboard-green)",
-                  padding: "12px 24px",
-                  borderRadius: "8px",
-                  textDecoration: "none",
-                  fontWeight: 600,
-                  fontSize: "15px",
-                }}
-              >
-                Unirme con código
-              </Link>
-              <button
-                type="button"
-                onClick={handleSeedDemoData}
-                style={{
-                  background: "#f4f8f6",
-                  color: "#2a5446",
-                  border: "1px dashed var(--dashboard-green)",
-                  padding: "12px 20px",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  fontSize: "15px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                <Sparkles size={16} /> Cargar datos de demostración
-              </button>
+            <div className="dashboard-welcome-grid">
+              <div className="dashboard-welcome-card dashboard-welcome-card--primary">
+                <div className="dashboard-welcome-card-icon">
+                  <Home size={26} />
+                </div>
+                <h3>Crear nueva vivienda</h3>
+                <p>
+                  Si eres quien organiza el hogar o te mudas primero, crea tu espacio y recibe un código para invitar a tus compañeros.
+                </p>
+                <Link to="/crear-vivienda" className="dashboard-welcome-btn dashboard-welcome-btn--primary">
+                  Crear mi vivienda →
+                </Link>
+              </div>
+
+              <div className="dashboard-welcome-card dashboard-welcome-card--secondary">
+                <div className="dashboard-welcome-card-icon">
+                  <Key size={26} />
+                </div>
+                <h3>Unirme con código</h3>
+                <p>
+                  ¿Tu compañero de casa ya creó la vivienda? Pídele el código de invitación de 6 caracteres para entrar de inmediato.
+                </p>
+                <Link to="/unirse-vivienda" className="dashboard-welcome-btn dashboard-welcome-btn--secondary">
+                  Ingresar código →
+                </Link>
+              </div>
+
+              <div className="dashboard-welcome-card dashboard-welcome-card--demo">
+                <div className="dashboard-welcome-card-icon">
+                  <Sparkles size={26} />
+                </div>
+                <h3>Explorar con demo</h3>
+                <p>
+                  ¿Quieres ver la magia antes de empezar? Carga datos de prueba interactivos con gastos, tareas y deudas simuladas.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSeedDemoData}
+                  className="dashboard-welcome-btn dashboard-welcome-btn--demo"
+                >
+                  <Sparkles size={15} /> Probar demostración
+                </button>
+              </div>
+            </div>
+
+            <div className="dashboard-welcome-guide">
+              <span className="dashboard-welcome-guide-title">¿Cómo funciona Our House?</span>
+              <div className="dashboard-welcome-guide-steps">
+                <div className="dashboard-guide-step">
+                  <span className="dashboard-guide-number">1</span>
+                  <span><strong>Registra gastos</strong> de mercado, servicios o arriendo.</span>
+                </div>
+                <div className="dashboard-guide-step">
+                  <span className="dashboard-guide-number">2</span>
+                  <span><strong>División justa</strong> proporcional a los ingresos de cada quien.</span>
+                </div>
+                <div className="dashboard-guide-step">
+                  <span className="dashboard-guide-number">3</span>
+                  <span><strong>Tareas claras</strong> para que la casa siempre esté impecable.</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1310,35 +1317,38 @@ function Dashboard() {
         {/* TAB 1: RESUMEN / VISTA GENERAL */}
         {activeTab === "resumen" && dwelling && (
           <>
-            {/* Hogar Activo Welcome Card */}
-            <div
-              style={{
-                background: "#ffffff",
-                padding: "24px 28px",
-                borderRadius: "16px",
-                border: "1px solid #dce8e2",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.03)",
-                marginBottom: "24px",
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "20px",
-              }}
-            >
-              <div>
-                <p style={{ margin: "0 0 4px", fontSize: "12px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "var(--dashboard-green)" }}>
-                  Hogar Activo
-                </p>
-                <h1 style={{ margin: "0 0 6px", fontSize: "28px", color: "var(--dashboard-ink)" }}>
-                  {dwelling.nombre}
-                </h1>
-                <p style={{ margin: 0, fontSize: "14px", color: "var(--dashboard-muted)" }}>
-                  {dwelling.direccion || "Dirección no especificada"} · {members.length} {members.length === 1 ? "integrante" : "integrantes"}
-                </p>
+            {/* Hogar Activo Welcome Card con Identidad Our House */}
+            <div className="dwelling-hero-card">
+              <div className="dwelling-hero-watermark" aria-hidden="true">
+                <img src="/logo-tight.png" alt="" />
               </div>
 
-              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
+              <div className="dwelling-hero-main">
+                <div className="dwelling-brand-avatar" title="Identidad Our House">
+                  <img
+                    src="/logo-tight.png"
+                    alt="Our House"
+                    className="dwelling-brand-avatar-img"
+                  />
+                </div>
+                <div className="dwelling-hero-info">
+                  <div className="dwelling-badge-row">
+                    <span className="dwelling-brand-tag">
+                      <span className="dwelling-brand-tag-dot" />
+                      Our House
+                    </span>
+                    <span className="dwelling-status-tag">Hogar Activo</span>
+                  </div>
+                  <h1 className="dwelling-hero-title">
+                    {dwelling.nombre}
+                  </h1>
+                  <p className="dwelling-hero-meta">
+                    {dwelling.direccion || "Dirección no especificada"} · {members.length} {members.length === 1 ? "integrante" : "integrantes"} · Convivencia gestionada en <strong>Our House</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div className="dwelling-hero-actions">
                 {/* Código de invitación con 1-click copy */}
                 <div
                   style={{
@@ -2588,6 +2598,23 @@ function Dashboard() {
           </section>
         )}
       </section>
+
+      {/* Footer oficial de Our House */}
+      <footer className="dashboard-footer">
+        <div className="dashboard-footer-content">
+          <Logo size="sm" subtitle="Convivencia y finanzas del hogar" />
+          <p className="dashboard-footer-text">
+            Our House · Cuentas claras, tareas al día y armonía en tu vivienda compartida.
+          </p>
+          <div className="dashboard-footer-pills">
+            <span>Gestión colaborativa</span>
+            <span>·</span>
+            <span>Reparto proporcional justo</span>
+            <span>·</span>
+            <span>Hogar activo</span>
+          </div>
+        </div>
+      </footer>
 
       {expensePendingDeletion && (
         <div

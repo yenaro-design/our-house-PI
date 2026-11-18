@@ -90,12 +90,50 @@
   line-height: 0.99;
 }
 
-.login-story-copy > p:last-child {
-  max-width: 340px;
-  margin: 26px 0 0;
+.login-story-copy p {
+  max-width: 380px;
+  margin: 18px 0 0;
   color: #52655d;
   font-size: 16px;
-  line-height: 1.65;
+  line-height: 1.6;
+}
+
+.login-story-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.login-story-feature-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(53, 107, 89, 0.16);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--login-ink);
+  width: fit-content;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(32, 48, 43, 0.04);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.login-story-feature-pill:hover {
+  transform: translateX(3px);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(212, 119, 94, 0.35);
+}
+
+.login-feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--login-green, #356b59);
+  flex-shrink: 0;
 }
 
 .login-story-line {
